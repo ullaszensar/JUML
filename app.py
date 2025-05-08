@@ -399,86 +399,142 @@ def create_hierarchy_explorer(uml_diagram: UMLDiagram, selected_package: Optiona
     inheritance_relations = [rel for rel in uml_diagram.relationships 
                              if rel.type in ["inheritance", "implementation"]]
     
-    # Build a hierarchy map: child -> parent
+    # Build a hierarchy map: parent -> [children]
     hierarchy_map = {}
     for rel in inheritance_relations:
         child = rel.source
         parent = rel.target
-        hierarchy_map[child] = parent
+        
+        if parent not in hierarchy_map:
+            hierarchy_map[parent] = []
+        hierarchy_map[parent].append(child)
+    
+    # Find all classes that are children
+    all_children = set()
+    for children in hierarchy_map.values():
+        all_children.update(children)
+    
+    # Find all available class names
+    all_classes = {cls.name for cls in classes_to_display}
     
     # Find root classes (those that don't inherit from others)
-    all_children = set(hierarchy_map.keys())
-    all_classes = {cls.name for cls in classes_to_display}
     root_classes = all_classes - all_children
     
-    # For any remaining classes that do inherit but their parent is not in the filtered view
-    orphan_roots = {child for child, parent in hierarchy_map.items() 
-                    if parent not in all_classes and child in all_classes}
-    root_classes.update(orphan_roots)
-    
-    # Function to recursively build the hierarchy tree
-    def build_hierarchy_tree(root_class, level=0):
-        # Find class definition
-        class_def = next((cls for cls in classes_to_display if cls.name == root_class), None)
-        if not class_def:
-            return
-        
-        # Get children of this class
-        children = [child for child, parent in hierarchy_map.items() 
-                    if parent == root_class and child in all_classes]
-        
-        # Create expandable section for this class
-        with st.expander(f"{'  ' * level}📌 {root_class}", expanded=level==0):
-            # Create class info in a container for styling
-            with st.container():
-                # Class header with type indicator
-                if class_def.is_interface:
-                    st.markdown(f"**«interface»** {class_def.name}")
-                elif class_def.is_abstract:
-                    st.markdown(f"**«abstract»** {class_def.name}")
-                else:
-                    st.markdown(f"**{class_def.name}**")
-                
-                # Package info
-                if class_def.package:
-                    st.markdown(f"*Package:* {class_def.package}")
-                
-                # Attributes
-                if class_def.attributes:
-                    st.markdown("**Attributes:**")
-                    for attr in class_def.attributes:
-                        visibility = {"+" : "public", "-" : "private", "#" : "protected"}
-                        static_marker = " *static*" if attr.is_static else ""
-                        st.markdown(f"* {attr.visibility} {attr.name}: {attr.type} {static_marker}")
-                
-                # Methods
-                if class_def.methods:
-                    st.markdown("**Methods:**")
-                    for method in class_def.methods:
-                        visibility = {"+" : "public", "-" : "private", "#" : "protected"}
-                        abstract_marker = " *abstract*" if method.is_abstract else ""
-                        static_marker = " *static*" if method.is_static else ""
-                        
-                        # Format parameters
-                        params = ", ".join([f"{p['name']}: {p['type']}" for p in method.parameters])
-                        
-                        st.markdown(f"* {method.visibility} {method.name}({params}): {method.return_type}{static_marker}{abstract_marker}")
+    # Add classes that have no displayed parents as roots
+    for class_name in all_classes:
+        if class_name in all_children:
+            # Check if this class's parent is in the displayed classes
+            parent_found = False
+            for rel in inheritance_relations:
+                if rel.source == class_name and rel.target in all_classes:
+                    parent_found = True
+                    break
             
-            # Recursively display children
-            for child in sorted(children):
-                build_hierarchy_tree(child, level + 1)
+            if not parent_found:
+                root_classes.add(class_name)
     
     # Display instructions for the hierarchy explorer
     st.markdown("""
     ### Interactive Class Hierarchy Explorer
     
-    Expand nodes to see inheritance hierarchies. Click on class names to view details.
-    Classes are arranged by inheritance relationships (parent → child).
+    Click on class names to view details. Classes are arranged by inheritance relationships.
     """)
     
-    # Use columns to create the visual hierarchy
-    for root in sorted(root_classes):
-        build_hierarchy_tree(root)
+    # Create a tab for each root class
+    if root_classes:
+        tabs = st.tabs([f"📌 {root}" for root in sorted(root_classes)])
+        
+        for i, root in enumerate(sorted(root_classes)):
+            with tabs[i]:
+                display_class_details(root, classes_to_display, hierarchy_map, all_classes)
+    else:
+        st.info("No root classes found in the diagram.")
+
+
+def display_class_details(class_name: str, classes: List[ClassDefinition], 
+                         hierarchy_map: Dict[str, List[str]], all_class_names: set):
+    """Display details for a class and its children
+    
+    Args:
+        class_name: Name of the class to display
+        classes: List of all class definitions
+        hierarchy_map: Map of parent classes to their children
+        all_class_names: Set of all class names in the current view
+    """
+    # Find class definition
+    class_def = next((cls for cls in classes if cls.name == class_name), None)
+    if not class_def:
+        st.warning(f"Class definition for '{class_name}' not found.")
+        return
+    
+    # Create a visual container for the class
+    with st.container():
+        # Class header with styled box
+        st.markdown(f"""
+        <div style="border: 2px solid #4CAF50; border-radius: 5px; padding: 10px; margin-bottom: 10px;">
+            <h3 style="margin-top: 0;">{class_name}</h3>
+            <p><strong>Type:</strong> {"Interface" if class_def.is_interface else "Abstract Class" if class_def.is_abstract else "Class"}</p>
+            {f'<p><strong>Package:</strong> {class_def.package}</p>' if class_def.package else ''}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Create tabs for attributes, methods, and children
+        class_tabs = st.tabs(["Attributes", "Methods", "Children"])
+        
+        # Attributes tab
+        with class_tabs[0]:
+            if class_def.attributes:
+                for attr in class_def.attributes:
+                    visibility_text = {"+" : "public", "-" : "private", "#" : "protected"}[attr.visibility]
+                    static_text = "static " if attr.is_static else ""
+                    st.markdown(f"""
+                    <div style="margin-bottom: 5px; padding: 5px; background-color: #f9f9f9; border-left: 3px solid #2196F3;">
+                        <span style="color: #666;">{visibility_text}</span> {static_text}<strong>{attr.name}</strong>: <span style="color: #007ACC;">{attr.type}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("No attributes defined for this class.")
+        
+        # Methods tab
+        with class_tabs[1]:
+            if class_def.methods:
+                for method in class_def.methods:
+                    visibility_text = {"+" : "public", "-" : "private", "#" : "protected"}[method.visibility]
+                    abstract_text = "abstract " if method.is_abstract else ""
+                    static_text = "static " if method.is_static else ""
+                    
+                    # Format parameters
+                    params = ", ".join([f"{p['name']}: {p['type']}" for p in method.parameters])
+                    
+                    st.markdown(f"""
+                    <div style="margin-bottom: 8px; padding: 5px; background-color: #f9f9f9; border-left: 3px solid #FFA000;">
+                        <span style="color: #666;">{visibility_text}</span> {abstract_text}{static_text}<strong>{method.name}</strong>({params}): <span style="color: #007ACC;">{method.return_type}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("No methods defined for this class.")
+        
+        # Children tab - show all classes that inherit from this one
+        with class_tabs[2]:
+            if class_name in hierarchy_map and hierarchy_map[class_name]:
+                children = [child for child in hierarchy_map[class_name] if child in all_class_names]
+                if children:
+                    child_cols = st.columns(min(3, len(children)))
+                    for i, child in enumerate(sorted(children)):
+                        with child_cols[i % 3]:
+                            # Find the child class definition
+                            child_class = next((cls for cls in classes if cls.name == child), None)
+                            if child_class:
+                                class_type = "Interface" if child_class.is_interface else "Abstract" if child_class.is_abstract else "Class"
+                                if st.button(f"{child} ({class_type})", key=f"child_{class_name}_{child}"):
+                                    # Show details for the selected child class
+                                    st.markdown("---")
+                                    st.markdown(f"### Child: {child}")
+                                    display_class_details(child, classes, hierarchy_map, all_class_names)
+                else:
+                    st.info("No children classes in the current view.")
+            else:
+                st.info("No children classes inherit from this class.")
 
 
 def main():
