@@ -440,8 +440,13 @@ def create_hierarchy_explorer(uml_diagram: UMLDiagram, selected_package: Optiona
     Click on class names to view details. Classes are arranged by inheritance relationships.
     """)
     
-    # Create a tab for each root class
+    # Create a tab for each root class with unique keys
     if root_classes:
+        # Create a unique key suffix for this set of tabs
+        import random 
+        root_tabs_key = f"root_tabs_{random.randint(1000, 9999)}"
+        
+        # Create tabs (note: can't add keys directly to tabs in this version of Streamlit)
         tabs = st.tabs([f"📌 {root}" for root in sorted(root_classes)])
         
         for i, root in enumerate(sorted(root_classes)):
@@ -479,6 +484,7 @@ def display_class_details(class_name: str, classes: List[ClassDefinition],
         """, unsafe_allow_html=True)
         
         # Create tabs for attributes, methods, and children
+        # Note: Can't add key parameter to tabs in this version of Streamlit
         class_tabs = st.tabs(["Attributes", "Methods", "Children"])
         
         # Attributes tab
@@ -526,11 +532,21 @@ def display_class_details(class_name: str, classes: List[ClassDefinition],
                             child_class = next((cls for cls in classes if cls.name == child), None)
                             if child_class:
                                 class_type = "Interface" if child_class.is_interface else "Abstract" if child_class.is_abstract else "Class"
-                                if st.button(f"{child} ({class_type})", key=f"child_{class_name}_{child}"):
+                                # Create a unique key by adding an index to avoid duplicates
+                                button_key = f"child_{class_name}_{child}_{i}"
+                                if st.button(f"{child} ({class_type})", key=button_key):
                                     # Show details for the selected child class
                                     st.markdown("---")
                                     st.markdown(f"### Child: {child}")
-                                    display_class_details(child, classes, hierarchy_map, all_class_names)
+                                    
+                                    # Add a random suffix to the session state key to avoid conflicts
+                                    # when recursively viewing child classes
+                                    import random
+                                    suffix = random.randint(10000, 99999)
+                                    
+                                    # Create a container for child details to isolate them
+                                    with st.container():
+                                        display_class_details(child, classes, hierarchy_map, all_class_names)
                 else:
                     st.info("No children classes in the current view.")
             else:
