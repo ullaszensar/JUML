@@ -14,14 +14,19 @@ class UMLGenerator:
         """Initialize the UML generator"""
         pass
     
+    def _escape_html(self, text: str) -> str:
+        """Escape HTML special characters in text"""
+        return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        
     def _format_attributes(self, attributes: List[Dict[str, Any]]) -> List[str]:
         """Format attributes for display in the UML diagram"""
         formatted = []
         for attr in attributes:
             # Format: visibility name: type
             static_marker = "{static} " if attr.get('is_static', False) else ""
-            type_str = f": {attr.get('type', '')}" if attr.get('type') else ""
-            formatted.append(f"{static_marker}{attr.get('visibility', '+')} {attr.get('name', '')}{type_str}")
+            name = self._escape_html(attr.get('name', ''))
+            type_str = f": {self._escape_html(attr.get('type', ''))}" if attr.get('type') else ""
+            formatted.append(f"{static_marker}{attr.get('visibility', '+')} {name}{type_str}")
         return formatted
     
     def _format_methods(self, methods: List[Dict[str, Any]]) -> List[str]:
@@ -35,13 +40,15 @@ class UMLGenerator:
             # Format parameters
             params = []
             for param in method.get('parameters', []):
-                param_type = f": {param.get('type')}" if param.get('type') else ""
-                params.append(f"{param.get('name', '')}{param_type}")
+                param_name = self._escape_html(param.get('name', ''))
+                param_type = f": {self._escape_html(param.get('type', ''))}" if param.get('type') else ""
+                params.append(f"{param_name}{param_type}")
             
+            name = self._escape_html(method.get('name', ''))
             param_str = ", ".join(params)
-            return_type = f": {method.get('return_type', '')}" if method.get('return_type') else ""
+            return_type = f": {self._escape_html(method.get('return_type', ''))}" if method.get('return_type') else ""
             
-            formatted.append(f"{static_marker}{abstract_marker}{method.get('visibility', '+')} {method.get('name', '')}({param_str}){return_type}")
+            formatted.append(f"{static_marker}{abstract_marker}{method.get('visibility', '+')} {name}({param_str}){return_type}")
         
         return formatted
     
@@ -56,25 +63,26 @@ class UMLGenerator:
         for class_def in uml_diagram.classes:
             name = class_def.name
             
-            # Title part - includes class name
-            title = f"<B>{name}</B>"
+            # Prepare name with indicators for abstract/interface
+            display_name = name
             if class_def.is_interface:
-                title = f"<B>«interface»<BR/>{name}</B>"
+                display_name = f"«interface»\\n{name}"
             elif class_def.is_abstract:
-                title = f"<B>«abstract»<BR/>{name}</B>"
+                display_name = f"«abstract»\\n{name}"
             
             # Attribute part
             attributes = self._format_attributes([attr.model_dump() for attr in class_def.attributes])
-            attr_text = "<BR/>".join(attributes) if attributes else " "
+            attr_text = "\\n".join(attributes) if attributes else " "
             
             # Method part
             methods = self._format_methods([method.model_dump() for method in class_def.methods])
-            method_text = "<BR/>".join(methods) if methods else " "
+            method_text = "\\n".join(methods) if methods else " "
             
-            # Construct the label
-            label = f"{{{{<TR><TD>{title}</TD></TR>|<TR><TD ALIGN='LEFT'>{attr_text}</TD></TR>|<TR><TD ALIGN='LEFT'>{method_text}</TD></TR>}}}}"
+            # Construct the label using proper Graphviz HTML-like label format
+            # Class name section
+            label = f"{{{display_name}|{attr_text}|{method_text}}}"
             
-            dot.node(name, label=f"<{label}>")
+            dot.node(name, label=label)
         
         # Create edges for relationships
         for rel in uml_diagram.relationships:
