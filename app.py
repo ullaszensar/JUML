@@ -10,6 +10,7 @@ from typing import Dict, List, Any
 from utils.parser import get_parser, ManualInputParser
 from utils.uml_generator import UMLGenerator
 from utils.data_models import ClassDefinition, Attribute, Method, Relationship, UMLDiagram
+from utils.test_uml import generate_test_uml
 
 # Set page title and configure layout
 st.set_page_config(
@@ -353,11 +354,16 @@ def main():
     # Sidebar for navigation
     sidebar_option = st.sidebar.radio(
         "Navigation",
-        ["Generate Diagram", "Help"]
+        ["Generate Diagram", "Test Diagram", "Help"]
     )
     
     if sidebar_option == "Help":
         display_help()
+        return
+        
+    if sidebar_option == "Test Diagram":
+        st.info("This is a test page to verify diagram generation with simple test data.")
+        generate_test_uml()
         return
     
     # Initialize session state for the UML diagram
