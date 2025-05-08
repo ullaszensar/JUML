@@ -23,7 +23,7 @@ class UMLGenerator:
         formatted = []
         for attr in attributes:
             # Format: visibility name: type
-            static_marker = "{static} " if attr.get('is_static', False) else ""
+            static_marker = "static " if attr.get('is_static', False) else ""
             name = self._escape_html(attr.get('name', ''))
             type_str = f": {self._escape_html(attr.get('type', ''))}" if attr.get('type') else ""
             formatted.append(f"{static_marker}{attr.get('visibility', '+')} {name}{type_str}")
@@ -34,8 +34,8 @@ class UMLGenerator:
         formatted = []
         for method in methods:
             # Format: visibility name(param1: type, param2: type): return_type
-            static_marker = "{static} " if method.get('is_static', False) else ""
-            abstract_marker = "{abstract} " if method.get('is_abstract', False) else ""
+            static_marker = "static " if method.get('is_static', False) else ""
+            abstract_marker = "abstract " if method.get('is_abstract', False) else ""
             
             # Format parameters
             params = []
@@ -58,6 +58,8 @@ class UMLGenerator:
         dot.attr('node', shape='record', style='filled', fillcolor='white')
         dot.attr('edge', fontsize='10')
         dot.attr(rankdir='TB')
+        # Disable HTML-like labels to avoid syntax errors
+        dot.attr('node', escapechar='\\')
         
         # Create nodes for classes
         for class_def in uml_diagram.classes:
@@ -78,11 +80,22 @@ class UMLGenerator:
             methods = self._format_methods([method.model_dump() for method in class_def.methods])
             method_text = "\\n".join(methods) if methods else " "
             
-            # Construct the label using proper Graphviz HTML-like label format
-            # Class name section
-            label = f"{{{display_name}|{attr_text}|{method_text}}}"
+            # Build a properly escaped record-based label format for Graphviz
+            if attributes:
+                attr_section = attr_text
+            else:
+                attr_section = " "
+                
+            if methods:
+                method_section = method_text
+            else:
+                method_section = " "
+                
+            # Using Graphviz's record-based node shapes (no HTML)
+            label = f"{display_name}|{attr_section}|{method_section}"
             
-            dot.node(name, label=label)
+            # Use the HTML-safe record shape
+            dot.node(name, label=label, shape="record")
         
         # Create edges for relationships
         for rel in uml_diagram.relationships:
