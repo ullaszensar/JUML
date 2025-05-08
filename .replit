@@ -2,7 +2,7 @@ modules = ["python-3.11"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["freefont_ttf", "libxcrypt", "xdg-utils"]
+packages = ["freefont_ttf", "libxcrypt", "xdg-utils", "graphviz"]
 
 [deployment]
 deploymentTarget = "autoscale"

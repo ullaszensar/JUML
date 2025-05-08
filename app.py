@@ -29,17 +29,13 @@ def display_help():
     
     JUML makes it easy to generate UML class diagrams from your code:
     
-    ### Simple 3-Step Process
+    ### Simple 2-Step Process
     
-    1. **Select a programming language** (Python, Java, or JavaScript)
+    1. **Upload a ZIP file** containing your Java code files
+       - The application will automatically extract all `.java` files
+       - All extracted code is combined and analyzed together
     
-    2. **Upload a ZIP file** containing your code files
-       - The application will automatically extract all files with the appropriate extension for the selected language
-       - For Python: `.py` files
-       - For Java: `.java` files
-       - For JavaScript: `.js` files
-    
-    3. **View and download your diagram**
+    2. **View and download your diagram**
        - The diagram is generated automatically
        - You can download it in SVG or PNG format
     
@@ -368,11 +364,9 @@ def main():
     if 'uml_diagram' not in st.session_state:
         st.session_state.uml_diagram = UMLDiagram(classes=[], relationships=[])
     
-    # Language selection
-    language = st.selectbox(
-        "Select programming language",
-        ["Python", "Java", "JavaScript"]
-    )
+    # Fixed to Java language only
+    language = "Java"
+    st.info("JUML is configured to parse Java code files (.java)")
     
     # Direct ZIP file upload interface
     st.write("Upload a ZIP file containing your code files")
