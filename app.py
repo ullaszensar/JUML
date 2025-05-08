@@ -27,69 +27,21 @@ def display_help():
     st.markdown("""
     ## How to use JUML
     
-    JUML provides two ways to generate UML class diagrams:
+    JUML makes it easy to generate UML class diagrams from your code:
     
-    ### 1. Code Input
-    - Select a programming language (Python, Java, or JavaScript)
-    - You can either:
-        - Paste your code directly in the text area
-        - Upload a ZIP file containing your code files (the files with appropriate extensions for the selected language will be extracted)
-    - Click "Generate Diagram" to parse the code and create a diagram
+    ### Simple 3-Step Process
     
-    ### 2. Manual Input
-    - Add classes manually by providing:
-      - Class name
-      - Attributes (name, type, visibility)
-      - Methods (name, parameters, return type, visibility)
-    - Add relationships between classes
-    - Edit classes and relationships as needed
+    1. **Select a programming language** (Python, Java, or JavaScript)
     
-    ### Sample JSON Format
-    For manual input, you can also directly edit the JSON. Here's the format:
+    2. **Upload a ZIP file** containing your code files
+       - The application will automatically extract all files with the appropriate extension for the selected language
+       - For Python: `.py` files
+       - For Java: `.java` files
+       - For JavaScript: `.js` files
     
-    ```json
-    {
-      "classes": [
-        {
-          "name": "MyClass",
-          "attributes": [
-            {
-              "name": "attribute1",
-              "type": "String",
-              "visibility": "+",
-              "is_static": false
-            }
-          ],
-          "methods": [
-            {
-              "name": "myMethod",
-              "return_type": "void",
-              "parameters": [
-                {
-                  "name": "param1",
-                  "type": "int"
-                }
-              ],
-              "visibility": "+",
-              "is_static": false,
-              "is_abstract": false
-            }
-          ],
-          "is_abstract": false,
-          "is_interface": false
-        }
-      ],
-      "relationships": [
-        {
-          "source": "ChildClass",
-          "target": "ParentClass",
-          "type": "inheritance",
-          "label": "",
-          "multiplicity": ""
-        }
-      ]
-    }
-    ```
+    3. **View and download your diagram**
+       - The diagram is generated automatically
+       - You can download it in SVG or PNG format
     
     ### UML Notation
     - Visibility: `+` (public), `-` (private), `#` (protected)
@@ -416,215 +368,83 @@ def main():
     if 'uml_diagram' not in st.session_state:
         st.session_state.uml_diagram = UMLDiagram(classes=[], relationships=[])
     
-    # Main interface
-    tab1, tab2, tab3 = st.tabs(["Code Input", "Manual Input", "View Diagram"])
+    # Language selection
+    language = st.selectbox(
+        "Select programming language",
+        ["Python", "Java", "JavaScript"]
+    )
     
-    with tab1:
-        st.header("Generate UML from Code")
-        
-        # Language selection
-        language = st.selectbox(
-            "Select programming language",
-            ["Python", "Java", "JavaScript"]
-        )
-        
-        # Input type tabs
-        input_tab1, input_tab2 = st.tabs(["Text Input", "Upload ZIP File"])
-        
-        with input_tab1:
-            # Code input
-            code = st.text_area("Paste your code here", height=300)
-        
-        with input_tab2:
-            st.write("Upload a ZIP file containing your code files")
-            uploaded_file = st.file_uploader("Choose a ZIP file", type="zip")
-            if uploaded_file is not None:
-                # Process the uploaded ZIP file
-                st.info(f"Processing ZIP file: {uploaded_file.name}")
-                try:
-                    code = process_zip_file(uploaded_file, language)
-                    st.success("ZIP file processed successfully!")
-                    st.write("Preview of extracted code:")
-                    preview_length = min(1000, len(code))
-                    st.code(code[:preview_length] + ("..." if len(code) > preview_length else ""))
-                except Exception as e:
-                    st.error(f"Error processing ZIP file: {str(e)}")
-                    code = ""
-            else:
-                code = ""
-        
-        # Parse button
-        if st.button("Generate Diagram"):
-            if code:
-                try:
-                    parser = get_parser(language)
-                    if parser:
-                        uml_diagram = parser.parse(code)
-                        st.session_state.uml_diagram = uml_diagram
-                        st.success(f"Successfully parsed {language} code!")
-                        
-                        # Automatically switch to the View Diagram tab
-                        st.rerun()
-                    else:
-                        st.error(f"Parser for {language} not available.")
-                except Exception as e:
-                    st.error(f"Error parsing code: {str(e)}")
-            else:
-                st.error("Please enter code or upload a ZIP file to parse.")
+    # Direct ZIP file upload interface
+    st.write("Upload a ZIP file containing your code files")
+    uploaded_file = st.file_uploader("Choose a ZIP file", type="zip")
     
-    with tab2:
-        st.header("Manual UML Definition")
-        
-        tab2a, tab2b = st.tabs(["Form Input", "JSON Editor"])
-        
-        with tab2a:
-            # Initialize class list in session state
-            if 'classes' not in st.session_state:
-                st.session_state.classes = []
-            
-            # Create new class section
-            st.subheader("Create New Class")
-            
-            # Handle class editor
-            new_class = create_class_editor()
-            
-            if st.button("Add Class to Diagram"):
-                if new_class:
-                    # Add the class to the session state list
-                    st.session_state.classes.append(new_class)
-                    
-                    # Clear the form
-                    st.session_state.current_attributes = []
-                    st.session_state.current_methods = []
-                    
-                    st.success(f"Added class {new_class.name} to the diagram!")
-                    st.rerun()
-                else:
-                    st.error("Please enter a class name.")
-            
-            # Display existing classes and allow editing
-            if st.session_state.classes:
-                st.subheader("Existing Classes")
-                
-                class_names = [cls.name for cls in st.session_state.classes]
-                
-                for i, cls in enumerate(st.session_state.classes):
-                    with st.expander(f"{cls.name}"):
-                        st.json(cls.to_dict())
-                        
-                        if st.button(f"Delete {cls.name}", key=f"delete_class_{i}"):
-                            # Remove the class
-                            st.session_state.classes.pop(i)
-                            
-                            # Remove any relationships involving this class
-                            if "current_relationships" in st.session_state:
-                                st.session_state.current_relationships = [
-                                    rel for rel in st.session_state.current_relationships
-                                    if rel["source"] != cls.name and rel["target"] != cls.name
-                                ]
-                            
-                            st.success(f"Deleted class {cls.name}")
-                            st.rerun()
-                
-                # Relationship editor
-                st.markdown("---")
-                relationships = create_relationship_editor(class_names)
-                
-                # Generate diagram button
-                if st.button("Generate Diagram from Manual Input"):
-                    uml_diagram = UMLDiagram(
-                        classes=st.session_state.classes,
-                        relationships=relationships
-                    )
-                    st.session_state.uml_diagram = uml_diagram
-                    st.success("UML diagram updated!")
-                    st.rerun()
-        
-        with tab2b:
-            st.subheader("JSON Editor")
-            
-            # Convert current diagram to JSON
-            if st.session_state.uml_diagram:
-                json_data = {
-                    "classes": [cls.model_dump() for cls in st.session_state.uml_diagram.classes],
-                    "relationships": [rel.model_dump() for rel in st.session_state.uml_diagram.relationships]
-                }
-                initial_json = json.dumps(json_data, indent=2)
-            else:
-                # Provide a sample structure
-                initial_json = json.dumps({
-                    "classes": [],
-                    "relationships": []
-                }, indent=2)
-            
-            # JSON editor
-            json_input = st.text_area("Edit JSON directly", initial_json, height=400)
-            
-            if st.button("Parse JSON"):
-                try:
-                    parser = ManualInputParser()
-                    uml_diagram = parser.parse(json_input)
-                    
-                    # Update both the UML diagram and the class list
-                    st.session_state.uml_diagram = uml_diagram
-                    st.session_state.classes = uml_diagram.classes
-                    
-                    # Update relationships
-                    st.session_state.current_relationships = [
-                        {
-                            "source": rel.source,
-                            "target": rel.target,
-                            "type": rel.type,
-                            "label": rel.label,
-                            "multiplicity": rel.multiplicity
-                        }
-                        for rel in uml_diagram.relationships
-                    ]
-                    
-                    st.success("Successfully parsed JSON input!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error parsing JSON: {str(e)}")
-    
-    with tab3:
-        st.header("UML Class Diagram")
-        
-        if st.session_state.uml_diagram and st.session_state.uml_diagram.classes:
-            # Display diagram info
-            class_count = len(st.session_state.uml_diagram.classes)
-            relationship_count = len(st.session_state.uml_diagram.relationships)
-            st.info(f"Diagram contains {class_count} classes and {relationship_count} relationships")
-            
-            # Display diagram
+    # Automatic diagram generation when file is uploaded
+    if uploaded_file is not None:
+        # Process the uploaded ZIP file
+        with st.spinner(f"Processing ZIP file: {uploaded_file.name}..."):
             try:
-                svg_content = generator.generate_svg(st.session_state.uml_diagram)
-                st.markdown(f'<div style="overflow: auto;">{svg_content}</div>', unsafe_allow_html=True)
-                
-                # Download options
-                col1, col2 = st.columns(2)
-                with col1:
-                    download_format = st.selectbox("Download Format", ["SVG", "PNG"])
-                
-                with col2:
-                    href, ext = get_download_link(st.session_state.uml_diagram, download_format.lower())
-                    st.markdown(
-                        f'<a href="{href}" download="uml_diagram.{ext}"><button style="padding: 0.5em 1em; '
-                        f'background-color: #4CAF50; color: white; border: none; '
-                        f'border-radius: 4px; cursor: pointer;">Download {download_format}</button></a>',
-                        unsafe_allow_html=True
-                    )
-                
-                # Clear diagram button
-                if st.button("Clear Diagram"):
-                    st.session_state.uml_diagram = UMLDiagram(classes=[], relationships=[])
-                    st.session_state.classes = []
-                    st.session_state.current_relationships = []
-                    st.rerun()
-                
+                code = process_zip_file(uploaded_file, language)
+                if code:
+                    # Preview of extracted code
+                    with st.expander("Preview of extracted code"):
+                        preview_length = min(1000, len(code))
+                        st.code(code[:preview_length] + ("..." if len(code) > preview_length else ""))
+                    
+                    # Automatically generate diagram
+                    try:
+                        parser = get_parser(language)
+                        if parser:
+                            uml_diagram = parser.parse(code)
+                            st.session_state.uml_diagram = uml_diagram
+                            st.success(f"Successfully parsed {language} code and generated diagram!")
+                        else:
+                            st.error(f"Parser for {language} not available.")
+                    except Exception as e:
+                        st.error(f"Error parsing code: {str(e)}")
+                else:
+                    st.warning(f"No {language} files found in the ZIP file.")
             except Exception as e:
-                st.error(f"Error generating diagram: {str(e)}")
-        else:
-            st.info("No diagram to display. Please generate a diagram from code or create one manually.")
+                st.error(f"Error processing ZIP file: {str(e)}")
+    
+    # Display diagram section
+    st.header("UML Class Diagram")
+    
+    if st.session_state.uml_diagram and st.session_state.uml_diagram.classes:
+        # Display diagram info
+        class_count = len(st.session_state.uml_diagram.classes)
+        relationship_count = len(st.session_state.uml_diagram.relationships)
+        st.info(f"Diagram contains {class_count} classes and {relationship_count} relationships")
+        
+        # Display diagram
+        try:
+            svg_content = generator.generate_svg(st.session_state.uml_diagram)
+            st.markdown(f'<div style="overflow: auto;">{svg_content}</div>', unsafe_allow_html=True)
+            
+            # Download options
+            col1, col2 = st.columns(2)
+            with col1:
+                download_format = st.selectbox("Download Format", ["SVG", "PNG"])
+            
+            with col2:
+                href, ext = get_download_link(st.session_state.uml_diagram, download_format.lower())
+                st.markdown(
+                    f'<a href="{href}" download="uml_diagram.{ext}"><button style="padding: 0.5em 1em; '
+                    f'background-color: #4CAF50; color: white; border: none; '
+                    f'border-radius: 4px; cursor: pointer;">Download {download_format}</button></a>',
+                    unsafe_allow_html=True
+                )
+            
+            # Clear diagram button
+            if st.button("Clear Diagram"):
+                st.session_state.uml_diagram = UMLDiagram(classes=[], relationships=[])
+                st.session_state.classes = []
+                st.session_state.current_relationships = []
+                st.rerun()
+            
+        except Exception as e:
+            st.error(f"Error generating diagram: {str(e)}")
+    else:
+        st.info("No diagram to display. Please upload a ZIP file to generate a diagram.")
 
 
 if __name__ == "__main__":
