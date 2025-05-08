@@ -150,23 +150,36 @@ class JavaParser(CodeParser):
     """Parser for Java code"""
     def parse(self, code: str) -> UMLDiagram:
         try:
+            # Validate code input
+            if not code or len(code) < 10:  # Basic validation
+                raise ValueError("Input code is too short or empty")
+                
             classes = []
             relationships = []
             
-            # Find class definitions
+            # Find class definitions with improved regex
             class_pattern = r'(public\s+|private\s+|protected\s+|\s*)' + \
                             r'(abstract\s+)?(class|interface)\s+(\w+)' + \
                             r'(\s+extends\s+(\w+))?(\s+implements\s+([^{]+))?'
             
-            class_matches = re.finditer(class_pattern, code)
+            # First search for classes in the code
+            class_matches = list(re.finditer(class_pattern, code))
             
+            if not class_matches:
+                raise ValueError("No Java classes or interfaces found in the code")
+                
             class_names = set()
             
             # First pass - collect class names
             for match in class_matches:
                 class_name = match.group(4)
-                class_names.add(class_name)
+                if class_name:  # Ensure the class name is valid
+                    class_names.add(class_name)
             
+            # Check if we found any valid class names
+            if not class_names:
+                raise ValueError("Could not extract valid class names from the code")
+                
             # Reset for second pass
             class_matches = re.finditer(class_pattern, code)
             

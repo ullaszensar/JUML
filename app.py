@@ -411,32 +411,43 @@ def main():
         
         # Display diagram
         try:
-            svg_content = generator.generate_svg(st.session_state.uml_diagram)
-            st.markdown(f'<div style="overflow: auto;">{svg_content}</div>', unsafe_allow_html=True)
-            
-            # Download options
-            col1, col2 = st.columns(2)
-            with col1:
-                download_format = st.selectbox("Download Format", ["SVG", "PNG"])
-            
-            with col2:
-                href, ext = get_download_link(st.session_state.uml_diagram, download_format.lower())
-                st.markdown(
-                    f'<a href="{href}" download="uml_diagram.{ext}"><button style="padding: 0.5em 1em; '
-                    f'background-color: #4CAF50; color: white; border: none; '
-                    f'border-radius: 4px; cursor: pointer;">Download {download_format}</button></a>',
-                    unsafe_allow_html=True
-                )
-            
-            # Clear diagram button
-            if st.button("Clear Diagram"):
-                st.session_state.uml_diagram = UMLDiagram(classes=[], relationships=[])
-                st.session_state.classes = []
-                st.session_state.current_relationships = []
-                st.rerun()
-            
+            # Validate diagram data before generating
+            if not st.session_state.uml_diagram.classes:
+                st.warning("The diagram doesn't contain any classes. Make sure the uploaded ZIP file has valid Java code.")
+                return
+                
+            # Generate diagram with enhanced error handling
+            try:
+                svg_content = generator.generate_svg(st.session_state.uml_diagram)
+                st.markdown(f'<div style="overflow: auto;">{svg_content}</div>', unsafe_allow_html=True)
+                
+                # Download options
+                col1, col2 = st.columns(2)
+                with col1:
+                    download_format = st.selectbox("Download Format", ["SVG", "PNG"])
+                
+                with col2:
+                    href, ext = get_download_link(st.session_state.uml_diagram, download_format.lower())
+                    st.markdown(
+                        f'<a href="{href}" download="uml_diagram.{ext}"><button style="padding: 0.5em 1em; '
+                        f'background-color: #4CAF50; color: white; border: none; '
+                        f'border-radius: 4px; cursor: pointer;">Download {download_format}</button></a>',
+                        unsafe_allow_html=True
+                    )
+                
+                # Clear diagram button
+                if st.button("Clear Diagram"):
+                    st.session_state.uml_diagram = UMLDiagram(classes=[], relationships=[])
+                    st.session_state.classes = []
+                    st.session_state.current_relationships = []
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Error rendering diagram: {str(e)}")
+                st.info("Try uploading a different ZIP file with Java code.")
+                
         except Exception as e:
             st.error(f"Error generating diagram: {str(e)}")
+            st.info("There might be an issue with the diagram generation. Please try uploading a different Java code ZIP file.")
     else:
         st.info("No diagram to display. Please upload a ZIP file to generate a diagram.")
 
