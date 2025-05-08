@@ -15,8 +15,9 @@ class UMLGenerator:
         pass
     
     def _escape_html(self, text: str) -> str:
-        """Escape HTML special characters in text"""
-        return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        """Escape special characters in Graphviz label text"""
+        # For Graphviz record-based labels, escape |, {, }, <, >, and \
+        return text.replace('\\', '\\\\').replace('{', '\\{').replace('}', '\\}').replace('|', '\\|').replace('<', '\\<').replace('>', '\\>')
         
     def _format_attributes(self, attributes: List[Dict[str, Any]]) -> List[str]:
         """Format attributes for display in the UML diagram"""
@@ -66,19 +67,21 @@ class UMLGenerator:
             name = class_def.name
             
             # Prepare name with indicators for abstract/interface
-            display_name = name
+            # Escape the name to prevent Graphviz syntax errors
+            escaped_name = self._escape_html(name)
+            display_name = escaped_name
             if class_def.is_interface:
-                display_name = f"«interface»\\n{name}"
+                display_name = f"interface\\n{escaped_name}"
             elif class_def.is_abstract:
-                display_name = f"«abstract»\\n{name}"
+                display_name = f"abstract\\n{escaped_name}"
             
             # Attribute part
             attributes = self._format_attributes([attr.model_dump() for attr in class_def.attributes])
-            attr_text = "\\n".join(attributes) if attributes else " "
+            attr_text = "\\l".join(attributes) if attributes else " "
             
             # Method part
             methods = self._format_methods([method.model_dump() for method in class_def.methods])
-            method_text = "\\n".join(methods) if methods else " "
+            method_text = "\\l".join(methods) if methods else " "
             
             # Build a properly escaped record-based label format for Graphviz
             if attributes:
