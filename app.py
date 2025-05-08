@@ -5,7 +5,7 @@ import json
 import zipfile
 import os
 import tempfile
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 from utils.parser import get_parser, ManualInputParser
 from utils.uml_generator import UMLGenerator
@@ -52,7 +52,7 @@ def display_help():
     """)
 
 
-def get_download_link(diagram: UMLDiagram, file_format: str, diagram_type: str = "class", selected_package: str = None):
+def get_download_link(diagram: UMLDiagram, file_format: str, diagram_type: str = "class", selected_package: Optional[str] = None):
     """Generate a download link for the diagram
     
     Args:

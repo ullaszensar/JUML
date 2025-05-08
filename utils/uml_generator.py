@@ -1,7 +1,7 @@
 import graphviz
 import base64
 import io
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from utils.data_models import UMLDiagram, ClassDefinition, Relationship
 
@@ -44,7 +44,7 @@ class UMLGenerator:
         
         return f"{visibility} {static}{abstract}{name}({param_str}){return_type}"
     
-    def generate(self, uml_diagram: UMLDiagram, selected_package: str = None) -> graphviz.Digraph:
+    def generate(self, uml_diagram: UMLDiagram, selected_package: Optional[str] = None) -> graphviz.Digraph:
         """Generate a Graphviz diagram using simple non-record labels
         
         Args:
@@ -155,7 +155,7 @@ class UMLGenerator:
         
         return dot
     
-    def generate_svg(self, uml_diagram: UMLDiagram, selected_package: str = None) -> str:
+    def generate_svg(self, uml_diagram: UMLDiagram, selected_package: Optional[str] = None) -> str:
         """Generate SVG from the UML diagram"""
         try:
             dot = self.generate(uml_diagram, selected_package)
@@ -167,10 +167,10 @@ class UMLGenerator:
             error_dot.node('error', f'Error generating diagram: {str(e)}', shape='box', style='filled', fillcolor='#ffcccc')
             return error_dot.pipe().decode('utf-8')
     
-    def generate_base64_image(self, uml_diagram: UMLDiagram) -> str:
+    def generate_base64_image(self, uml_diagram: UMLDiagram, selected_package: Optional[str] = None) -> str:
         """Generate base64 encoded image for embedding in HTML"""
         try:
-            dot = self.generate(uml_diagram)
+            dot = self.generate(uml_diagram, selected_package)
             svg_bytes = dot.pipe()
             return base64.b64encode(svg_bytes).decode('utf-8')
         except Exception as e:
@@ -181,7 +181,7 @@ class UMLGenerator:
             svg_bytes = error_dot.pipe()
             return base64.b64encode(svg_bytes).decode('utf-8')
     
-    def generate_png_bytes(self, uml_diagram: UMLDiagram, selected_package: str = None) -> bytes:
+    def generate_png_bytes(self, uml_diagram: UMLDiagram, selected_package: Optional[str] = None) -> bytes:
         """Generate PNG bytes for download"""
         try:
             dot = self.generate(uml_diagram, selected_package)
