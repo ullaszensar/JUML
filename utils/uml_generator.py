@@ -44,15 +44,29 @@ class UMLGenerator:
         
         return f"{visibility} {static}{abstract}{name}({param_str}){return_type}"
     
-    def generate(self, uml_diagram: UMLDiagram) -> graphviz.Digraph:
-        """Generate a Graphviz diagram using simple non-record labels"""
+    def generate(self, uml_diagram: UMLDiagram, selected_package: str = None) -> graphviz.Digraph:
+        """Generate a Graphviz diagram using simple non-record labels
+        
+        Args:
+            uml_diagram: The UML diagram data
+            selected_package: Optional filter to show only classes from a specific package
+        """
         dot = graphviz.Digraph(engine='dot', format='svg')
         dot.attr('graph', fontname='Arial', rankdir='TB')
         dot.attr('node', shape='box', style='filled', fillcolor='white', fontname='Arial')
         dot.attr('edge', fontname='Arial', fontsize='10')
         
+        # Filter classes based on selected package if specified
+        classes_to_show = uml_diagram.classes
+        if selected_package and selected_package != "All Packages":
+            classes_to_show = [cls for cls in uml_diagram.classes 
+                              if cls.package == selected_package]
+        
+        # Get all class names that will be displayed
+        displayed_class_names = [cls.name for cls in classes_to_show]
+        
         # Create nodes for classes
-        for class_def in uml_diagram.classes:
+        for class_def in classes_to_show:
             name = class_def.name
             label_parts = []
             
@@ -64,6 +78,10 @@ class UMLGenerator:
                 display_name = f"<<abstract>>\n{name}"
             
             label_parts.append(display_name)
+            
+            # Add package info if available
+            if class_def.package:
+                label_parts.append(f"({class_def.package})")
             
             # Line separator
             label_parts.append("-" * 15)
@@ -89,10 +107,15 @@ class UMLGenerator:
             # Add node to graph
             dot.node(name, label=label)
         
-        # Create edges for relationships
+        # Create edges for relationships, filtering those involving displayed classes
         for rel in uml_diagram.relationships:
             source = rel.source
             target = rel.target
+            
+            # Skip relationships that involve classes not in the selected package
+            if selected_package and selected_package != "All Packages":
+                if source not in displayed_class_names or target not in displayed_class_names:
+                    continue
             
             edge_attrs = {
                 'label': rel.label or '',
@@ -132,10 +155,10 @@ class UMLGenerator:
         
         return dot
     
-    def generate_svg(self, uml_diagram: UMLDiagram) -> str:
+    def generate_svg(self, uml_diagram: UMLDiagram, selected_package: str = None) -> str:
         """Generate SVG from the UML diagram"""
         try:
-            dot = self.generate(uml_diagram)
+            dot = self.generate(uml_diagram, selected_package)
             return dot.pipe().decode('utf-8')
         except Exception as e:
             # Return an error message as SVG
@@ -158,10 +181,10 @@ class UMLGenerator:
             svg_bytes = error_dot.pipe()
             return base64.b64encode(svg_bytes).decode('utf-8')
     
-    def generate_png_bytes(self, uml_diagram: UMLDiagram) -> bytes:
+    def generate_png_bytes(self, uml_diagram: UMLDiagram, selected_package: str = None) -> bytes:
         """Generate PNG bytes for download"""
         try:
-            dot = self.generate(uml_diagram)
+            dot = self.generate(uml_diagram, selected_package)
             dot.format = 'png'
             return dot.pipe()
         except Exception as e:

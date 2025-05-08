@@ -36,7 +36,7 @@ class ClassDefinition(BaseModel):
     methods: List[Method] = []
     is_abstract: bool = False
     is_interface: bool = False
-    package: str = ""
+    package: Optional[str] = ""
     
     def to_dict(self) -> Dict[str, Any]:
         return {

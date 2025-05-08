@@ -52,8 +52,15 @@ def display_help():
     """)
 
 
-def get_download_link(diagram: UMLDiagram, file_format: str, diagram_type: str = "class"):
-    """Generate a download link for the diagram"""
+def get_download_link(diagram: UMLDiagram, file_format: str, diagram_type: str = "class", selected_package: str = None):
+    """Generate a download link for the diagram
+    
+    Args:
+        diagram: UML diagram data
+        file_format: 'svg' or 'png'
+        diagram_type: 'class' or 'package'
+        selected_package: Optional package name to filter by
+    """
     if diagram_type == "package":
         if file_format == 'svg':
             svg_content = generator.generate_package_svg(diagram)
@@ -67,12 +74,12 @@ def get_download_link(diagram: UMLDiagram, file_format: str, diagram_type: str =
             return href, 'png'
     else:  # Class diagram (default)
         if file_format == 'svg':
-            svg_content = generator.generate_svg(diagram)
+            svg_content = generator.generate_svg(diagram, selected_package)
             b64 = base64.b64encode(svg_content.encode()).decode()
             href = f'data:image/svg+xml;base64,{b64}'
             return href, 'svg'
         else:  # PNG
-            png_bytes = generator.generate_png_bytes(diagram)
+            png_bytes = generator.generate_png_bytes(diagram, selected_package)
             b64 = base64.b64encode(png_bytes).decode()
             href = f'data:image/png;base64,{b64}'
             return href, 'png'
@@ -441,7 +448,22 @@ def main():
             try:
                 if diagram_type == "Class Diagram":
                     st.subheader("Class Diagram")
-                    svg_content = generator.generate_svg(st.session_state.uml_diagram)
+                    
+                    # Get list of packages to filter by
+                    packages = ["All Packages"]
+                    for cls in st.session_state.uml_diagram.classes:
+                        if cls.package and cls.package not in packages:
+                            packages.append(cls.package)
+                    
+                    # Package filter dropdown
+                    selected_package = st.selectbox("Filter by Package", packages, key="package_filter")
+                    
+                    # Apply package filter or show all classes
+                    if selected_package == "All Packages":
+                        svg_content = generator.generate_svg(st.session_state.uml_diagram)
+                    else:
+                        svg_content = generator.generate_svg(st.session_state.uml_diagram, selected_package)
+                    
                     st.markdown(f'<div style="overflow: auto;">{svg_content}</div>', unsafe_allow_html=True)
                     
                     # Download options
@@ -450,7 +472,12 @@ def main():
                         download_format = st.selectbox("Download Format", ["SVG", "PNG"], key="class_download_format")
                     
                     with col2:
-                        href, ext = get_download_link(st.session_state.uml_diagram, download_format.lower(), "class")
+                        # Pass selected package to download link generation
+                        if selected_package == "All Packages":
+                            href, ext = get_download_link(st.session_state.uml_diagram, download_format.lower(), "class")
+                        else:
+                            href, ext = get_download_link(st.session_state.uml_diagram, download_format.lower(), "class", selected_package)
+                            
                         st.markdown(
                             f'<a href="{href}" download="class_diagram.{ext}"><button style="padding: 0.5em 1em; '
                             f'background-color: #4CAF50; color: white; border: none; '
