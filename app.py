@@ -2,6 +2,9 @@ import streamlit as st
 import io
 import base64
 import json
+import zipfile
+import os
+import tempfile
 from typing import Dict, List, Any
 
 from utils.parser import get_parser, ManualInputParser
@@ -28,7 +31,9 @@ def display_help():
     
     ### 1. Code Input
     - Select a programming language (Python, Java, or JavaScript)
-    - Paste your code in the text area
+    - You can either:
+        - Paste your code directly in the text area
+        - Upload a ZIP file containing your code files (the files with appropriate extensions for the selected language will be extracted)
     - Click "Generate Diagram" to parse the code and create a diagram
     
     ### 2. Manual Input
@@ -110,6 +115,52 @@ def get_download_link(diagram: UMLDiagram, file_format: str):
         b64 = base64.b64encode(png_bytes).decode()
         href = f'data:image/png;base64,{b64}'
         return href, 'png'
+        
+def process_zip_file(uploaded_zip, language: str):
+    """Process a zip file containing code files"""
+    # Create a temporary directory
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Write zip content to a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.zip') as temp_zip:
+            temp_zip.write(uploaded_zip.getbuffer())
+            temp_zip_path = temp_zip.name
+        
+        # Extract the zip file
+        with zipfile.ZipFile(temp_zip_path, 'r') as zip_ref:
+            zip_ref.extractall(temp_dir)
+        
+        # Remove the temporary zip file
+        os.unlink(temp_zip_path)
+        
+        # Find all files with the appropriate extension based on language
+        extensions = {
+            "Python": [".py"],
+            "Java": [".java"],
+            "JavaScript": [".js"]
+        }
+        
+        # Get appropriate extensions for selected language
+        file_extensions = extensions.get(language, [])
+        
+        # Initialize an empty string to store all code
+        all_code = ""
+        
+        # Walk through the directory and get all relevant files
+        for root, dirs, files in os.walk(temp_dir):
+            for file in files:
+                # Check if the file has a matching extension
+                if any(file.endswith(ext) for ext in file_extensions):
+                    file_path = os.path.join(root, file)
+                    # Read the file content
+                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        try:
+                            code = f.read()
+                            # Add file content to combined code with a header comment
+                            all_code += f"\n\n# File: {os.path.relpath(file_path, temp_dir)}\n{code}"
+                        except Exception as e:
+                            st.warning(f"Could not read file {file}: {str(e)}")
+        
+        return all_code
 
 
 def create_class_editor():
@@ -377,8 +428,30 @@ def main():
             ["Python", "Java", "JavaScript"]
         )
         
-        # Code input
-        code = st.text_area("Paste your code here", height=300)
+        # Input type tabs
+        input_tab1, input_tab2 = st.tabs(["Text Input", "Upload ZIP File"])
+        
+        with input_tab1:
+            # Code input
+            code = st.text_area("Paste your code here", height=300)
+        
+        with input_tab2:
+            st.write("Upload a ZIP file containing your code files")
+            uploaded_file = st.file_uploader("Choose a ZIP file", type="zip")
+            if uploaded_file is not None:
+                # Process the uploaded ZIP file
+                st.info(f"Processing ZIP file: {uploaded_file.name}")
+                try:
+                    code = process_zip_file(uploaded_file, language)
+                    st.success("ZIP file processed successfully!")
+                    st.write("Preview of extracted code:")
+                    preview_length = min(1000, len(code))
+                    st.code(code[:preview_length] + ("..." if len(code) > preview_length else ""))
+                except Exception as e:
+                    st.error(f"Error processing ZIP file: {str(e)}")
+                    code = ""
+            else:
+                code = ""
         
         # Parse button
         if st.button("Generate Diagram"):
@@ -397,7 +470,7 @@ def main():
                 except Exception as e:
                     st.error(f"Error parsing code: {str(e)}")
             else:
-                st.error("Please enter some code to parse.")
+                st.error("Please enter code or upload a ZIP file to parse.")
     
     with tab2:
         st.header("Manual UML Definition")
