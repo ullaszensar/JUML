@@ -36,9 +36,14 @@ def display_help():
        - The application will automatically extract all `.java` files
        - All extracted code is combined and analyzed together
     
-    2. **View and download your diagram**
-       - The diagram is generated automatically
-       - You can download it in SVG or PNG format
+    2. **Choose your diagram type**
+       - **Class Diagram**: Traditional UML class diagram showing all classes and relationships
+       - **Package Diagram**: Shows relationships between packages in your code
+       - **Hierarchy Explorer**: Interactive explorer for class hierarchies with details on hover
+    
+    3. **View and download your diagram**
+       - Class and Package diagrams can be downloaded in SVG or PNG format
+       - Use the package filter dropdown to focus on specific packages
     
     ### UML Notation
     - Visibility: `+` (public), `-` (private), `#` (protected)
@@ -49,6 +54,11 @@ def display_help():
       - Dependency: one class depends on another
       - Aggregation: "has-a" relationship (weak ownership)
       - Composition: "contains" relationship (strong ownership)
+    
+    ### Interactive Hierarchy Explorer
+    - Expand and collapse classes to explore inheritance relationships
+    - View detailed class information including attributes and methods
+    - Filter by package to focus on specific parts of your codebase
     """)
 
 
@@ -366,6 +376,111 @@ def create_relationship_editor(class_names: List[str]):
     return relationships
 
 
+def create_hierarchy_explorer(uml_diagram: UMLDiagram, selected_package: Optional[str] = None):
+    """Create an interactive class hierarchy explorer
+    
+    This component shows inheritance relationships between classes with hover effects
+    for viewing class details.
+    
+    Args:
+        uml_diagram: The UML diagram to visualize
+        selected_package: Optional package name to filter by
+    """
+    if not uml_diagram.classes:
+        st.info("No classes to display in the hierarchy explorer.")
+        return
+    
+    # Filter classes by package if selected
+    classes_to_display = uml_diagram.classes
+    if selected_package and selected_package != "All Packages":
+        classes_to_display = [cls for cls in uml_diagram.classes if cls.package == selected_package]
+    
+    # Find all inheritance relationships
+    inheritance_relations = [rel for rel in uml_diagram.relationships 
+                             if rel.type in ["inheritance", "implementation"]]
+    
+    # Build a hierarchy map: child -> parent
+    hierarchy_map = {}
+    for rel in inheritance_relations:
+        child = rel.source
+        parent = rel.target
+        hierarchy_map[child] = parent
+    
+    # Find root classes (those that don't inherit from others)
+    all_children = set(hierarchy_map.keys())
+    all_classes = {cls.name for cls in classes_to_display}
+    root_classes = all_classes - all_children
+    
+    # For any remaining classes that do inherit but their parent is not in the filtered view
+    orphan_roots = {child for child, parent in hierarchy_map.items() 
+                    if parent not in all_classes and child in all_classes}
+    root_classes.update(orphan_roots)
+    
+    # Function to recursively build the hierarchy tree
+    def build_hierarchy_tree(root_class, level=0):
+        # Find class definition
+        class_def = next((cls for cls in classes_to_display if cls.name == root_class), None)
+        if not class_def:
+            return
+        
+        # Get children of this class
+        children = [child for child, parent in hierarchy_map.items() 
+                    if parent == root_class and child in all_classes]
+        
+        # Create expandable section for this class
+        with st.expander(f"{'  ' * level}📌 {root_class}", expanded=level==0):
+            # Create class info in a container for styling
+            with st.container():
+                # Class header with type indicator
+                if class_def.is_interface:
+                    st.markdown(f"**«interface»** {class_def.name}")
+                elif class_def.is_abstract:
+                    st.markdown(f"**«abstract»** {class_def.name}")
+                else:
+                    st.markdown(f"**{class_def.name}**")
+                
+                # Package info
+                if class_def.package:
+                    st.markdown(f"*Package:* {class_def.package}")
+                
+                # Attributes
+                if class_def.attributes:
+                    st.markdown("**Attributes:**")
+                    for attr in class_def.attributes:
+                        visibility = {"+" : "public", "-" : "private", "#" : "protected"}
+                        static_marker = " *static*" if attr.is_static else ""
+                        st.markdown(f"* {attr.visibility} {attr.name}: {attr.type} {static_marker}")
+                
+                # Methods
+                if class_def.methods:
+                    st.markdown("**Methods:**")
+                    for method in class_def.methods:
+                        visibility = {"+" : "public", "-" : "private", "#" : "protected"}
+                        abstract_marker = " *abstract*" if method.is_abstract else ""
+                        static_marker = " *static*" if method.is_static else ""
+                        
+                        # Format parameters
+                        params = ", ".join([f"{p['name']}: {p['type']}" for p in method.parameters])
+                        
+                        st.markdown(f"* {method.visibility} {method.name}({params}): {method.return_type}{static_marker}{abstract_marker}")
+            
+            # Recursively display children
+            for child in sorted(children):
+                build_hierarchy_tree(child, level + 1)
+    
+    # Display instructions for the hierarchy explorer
+    st.markdown("""
+    ### Interactive Class Hierarchy Explorer
+    
+    Expand nodes to see inheritance hierarchies. Click on class names to view details.
+    Classes are arranged by inheritance relationships (parent → child).
+    """)
+    
+    # Use columns to create the visual hierarchy
+    for root in sorted(root_classes):
+        build_hierarchy_tree(root)
+
+
 def main():
     """Main function to run the Streamlit app"""
     st.title("JUML - UML Class Diagram Generator")
@@ -442,7 +557,7 @@ def main():
                 return
                 
             # Select diagram type
-            diagram_type = st.radio("Diagram Type", ["Class Diagram", "Package Diagram"], horizontal=True)
+            diagram_type = st.radio("Diagram Type", ["Class Diagram", "Package Diagram", "Hierarchy Explorer"], horizontal=True)
             
             # Generate diagram with enhanced error handling
             try:
@@ -484,7 +599,7 @@ def main():
                             f'border-radius: 4px; cursor: pointer;">Download Class Diagram</button></a>',
                             unsafe_allow_html=True
                         )
-                else:  # Package Diagram
+                elif diagram_type == "Package Diagram":
                     st.subheader("Package Diagram")
                     svg_content = generator.generate_package_svg(st.session_state.uml_diagram)
                     st.markdown(f'<div style="overflow: auto;">{svg_content}</div>', unsafe_allow_html=True)
@@ -502,6 +617,20 @@ def main():
                             f'border-radius: 4px; cursor: pointer;">Download Package Diagram</button></a>',
                             unsafe_allow_html=True
                         )
+                else:  # Hierarchy Explorer
+                    st.subheader("Interactive Class Hierarchy Explorer")
+                    
+                    # Get list of packages to filter by
+                    packages = ["All Packages"]
+                    for cls in st.session_state.uml_diagram.classes:
+                        if cls.package and cls.package not in packages:
+                            packages.append(cls.package)
+                    
+                    # Package filter dropdown
+                    selected_package = st.selectbox("Filter by Package", packages, key="hierarchy_package_filter")
+                    
+                    # Apply the package filter to the hierarchy explorer
+                    create_hierarchy_explorer(st.session_state.uml_diagram, selected_package)
                 
                 # Clear diagram button
                 if st.button("Clear Diagram"):
