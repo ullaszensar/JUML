@@ -157,6 +157,12 @@ class JavaParser(CodeParser):
             classes = []
             relationships = []
             
+            # First extract package declarations
+            package_pattern = r'package\s+([\w.]+);'
+            current_package = None
+            for package_match in re.finditer(package_pattern, code):
+                current_package = package_match.group(1)
+                
             # Find class definitions with improved regex
             class_pattern = r'(public\s+|private\s+|protected\s+|\s*)' + \
                             r'(abstract\s+)?(class|interface)\s+(\w+)' + \
@@ -195,7 +201,8 @@ class JavaParser(CodeParser):
                 class_def = ClassDefinition(
                     name=class_name,
                     is_abstract=is_abstract,
-                    is_interface=is_interface
+                    is_interface=is_interface,
+                    package=current_package
                 )
                 
                 # Add inheritance relationships

@@ -52,18 +52,30 @@ def display_help():
     """)
 
 
-def get_download_link(diagram: UMLDiagram, file_format: str):
+def get_download_link(diagram: UMLDiagram, file_format: str, diagram_type: str = "class"):
     """Generate a download link for the diagram"""
-    if file_format == 'svg':
-        svg_content = generator.generate_svg(diagram)
-        b64 = base64.b64encode(svg_content.encode()).decode()
-        href = f'data:image/svg+xml;base64,{b64}'
-        return href, 'svg'
-    else:  # PNG
-        png_bytes = generator.generate_png_bytes(diagram)
-        b64 = base64.b64encode(png_bytes).decode()
-        href = f'data:image/png;base64,{b64}'
-        return href, 'png'
+    if diagram_type == "package":
+        if file_format == 'svg':
+            svg_content = generator.generate_package_svg(diagram)
+            b64 = base64.b64encode(svg_content.encode()).decode()
+            href = f'data:image/svg+xml;base64,{b64}'
+            return href, 'svg'
+        else:  # PNG
+            png_bytes = generator.generate_package_png_bytes(diagram)
+            b64 = base64.b64encode(png_bytes).decode()
+            href = f'data:image/png;base64,{b64}'
+            return href, 'png'
+    else:  # Class diagram (default)
+        if file_format == 'svg':
+            svg_content = generator.generate_svg(diagram)
+            b64 = base64.b64encode(svg_content.encode()).decode()
+            href = f'data:image/svg+xml;base64,{b64}'
+            return href, 'svg'
+        else:  # PNG
+            png_bytes = generator.generate_png_bytes(diagram)
+            b64 = base64.b64encode(png_bytes).decode()
+            href = f'data:image/png;base64,{b64}'
+            return href, 'png'
         
 def process_zip_file(uploaded_zip, language: str):
     """Process a zip file containing code files"""
@@ -422,24 +434,47 @@ def main():
                 st.warning("The diagram doesn't contain any classes. Make sure the uploaded ZIP file has valid Java code.")
                 return
                 
+            # Select diagram type
+            diagram_type = st.radio("Diagram Type", ["Class Diagram", "Package Diagram"], horizontal=True)
+            
             # Generate diagram with enhanced error handling
             try:
-                svg_content = generator.generate_svg(st.session_state.uml_diagram)
-                st.markdown(f'<div style="overflow: auto;">{svg_content}</div>', unsafe_allow_html=True)
-                
-                # Download options
-                col1, col2 = st.columns(2)
-                with col1:
-                    download_format = st.selectbox("Download Format", ["SVG", "PNG"])
-                
-                with col2:
-                    href, ext = get_download_link(st.session_state.uml_diagram, download_format.lower())
-                    st.markdown(
-                        f'<a href="{href}" download="uml_diagram.{ext}"><button style="padding: 0.5em 1em; '
-                        f'background-color: #4CAF50; color: white; border: none; '
-                        f'border-radius: 4px; cursor: pointer;">Download {download_format}</button></a>',
-                        unsafe_allow_html=True
-                    )
+                if diagram_type == "Class Diagram":
+                    st.subheader("Class Diagram")
+                    svg_content = generator.generate_svg(st.session_state.uml_diagram)
+                    st.markdown(f'<div style="overflow: auto;">{svg_content}</div>', unsafe_allow_html=True)
+                    
+                    # Download options
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        download_format = st.selectbox("Download Format", ["SVG", "PNG"], key="class_download_format")
+                    
+                    with col2:
+                        href, ext = get_download_link(st.session_state.uml_diagram, download_format.lower(), "class")
+                        st.markdown(
+                            f'<a href="{href}" download="class_diagram.{ext}"><button style="padding: 0.5em 1em; '
+                            f'background-color: #4CAF50; color: white; border: none; '
+                            f'border-radius: 4px; cursor: pointer;">Download Class Diagram</button></a>',
+                            unsafe_allow_html=True
+                        )
+                else:  # Package Diagram
+                    st.subheader("Package Diagram")
+                    svg_content = generator.generate_package_svg(st.session_state.uml_diagram)
+                    st.markdown(f'<div style="overflow: auto;">{svg_content}</div>', unsafe_allow_html=True)
+                    
+                    # Download options
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        download_format = st.selectbox("Download Format", ["SVG", "PNG"], key="package_download_format")
+                    
+                    with col2:
+                        href, ext = get_download_link(st.session_state.uml_diagram, download_format.lower(), "package")
+                        st.markdown(
+                            f'<a href="{href}" download="package_diagram.{ext}"><button style="padding: 0.5em 1em; '
+                            f'background-color: #4CAF50; color: white; border: none; '
+                            f'border-radius: 4px; cursor: pointer;">Download Package Diagram</button></a>',
+                            unsafe_allow_html=True
+                        )
                 
                 # Clear diagram button
                 if st.button("Clear Diagram"):
