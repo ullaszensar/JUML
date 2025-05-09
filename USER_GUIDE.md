@@ -67,15 +67,6 @@ Features:
 - **Relationship Type Summary**: Statistical breakdown of relationship types in your code
 - **CSV Export**: Download any of the summary tables for offline analysis
 
-#### Demographic Data Analysis
-This tab scans your Java code for fields that might store demographic or personal information.
-
-Features:
-- **Automated Detection**: Identifies fields related to personal data like names, addresses, gender, etc.
-- **File-level Reports**: Shows which files contain potential sensitive data fields
-- **Occurrence Counting**: Reports how frequently each field appears in the code
-- **Tabular Display**: Each file's data is presented in a clear, organized table
-
 #### Demographic Summary
 This tab provides a dedicated summary focused only on files containing demographic data.
 

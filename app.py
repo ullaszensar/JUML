@@ -732,7 +732,7 @@ def main():
             return
             
         # Create tabs for different analysis views
-        summary_tab, demo_tab, demo_summary_tab, hierarchy_tab, code_analysis_tab = st.tabs(["Analysis Summary", "Demographic Data Analysis", "Demographic Summary", "Class Hierarchy Table", "Code Analysis"])
+        summary_tab, demo_summary_tab, hierarchy_tab, code_analysis_tab = st.tabs(["Analysis Summary", "Demographic Summary", "Class Hierarchy Table", "Code Analysis"])
         
         # First, get data for all tabs
         demographic_data = {}
@@ -897,35 +897,7 @@ def main():
                 relationship_counts.columns = ["Relationship Type", "Count"]
                 st.dataframe(relationship_counts, use_container_width=True)
         
-        # Demographic Data Analysis Tab    
-        with demo_tab:
-            st.subheader("Demographic Data Analysis")
-            st.info("This analysis identifies potential demographic data fields in your Java code.")
-            
-            # Get the uploaded code if available
-            if 'uploaded_code' in st.session_state:
-                if demographic_data:
-                    st.warning(f"Found potential demographic data fields in {len(demographic_data)} files.")
-                    
-                    # Display a table for each file with demographic data
-                    for file, occurrences in demographic_data.items():
-                        st.write(f"**File:** `{file}`")
-                        
-                        # Create a DataFrame for display
-                        data = []
-                        for occurrence in occurrences:
-                            data.append({
-                                "Field": occurrence["field"],
-                                "Related Keyword": occurrence["keyword"],
-                                "Occurrences": occurrence["count"]
-                            })
-                        
-                        df = pd.DataFrame(data)
-                        st.dataframe(df, use_container_width=True)
-                else:
-                    st.success("No obvious demographic data fields were found in the code.")
-            else:
-                st.warning("No code available for analysis. Please upload a ZIP file with Java code first.")
+
         
         # Demographic Summary Tab
         with demo_summary_tab:
