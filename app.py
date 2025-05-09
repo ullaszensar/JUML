@@ -896,9 +896,6 @@ def main():
                 relationship_counts = hierarchy_df["Relationship Type"].value_counts().reset_index()
                 relationship_counts.columns = ["Relationship Type", "Count"]
                 st.dataframe(relationship_counts, use_container_width=True)
-        
-
-        
         # Demographic Summary Tab
         with demo_summary_tab:
             st.subheader("Demographic Data Summary")
