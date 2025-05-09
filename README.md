@@ -10,6 +10,17 @@ JUML is a web-based application that automatically generates UML class diagrams 
 - **Interactive Class Hierarchy Explorer**: Navigate through class inheritance hierarchies with detailed information
 - **Package Filtering**: Filter diagrams to focus on specific packages
 - **Export Options**: Download diagrams as SVG or PNG files
+- **Folder Selection**: Choose specific folders to include in the analysis, great for large codebases
+- **Data Analysis**: 
+  - **Analysis Summary**: Overview of classes, relationships, and demographic data with metrics and statistics
+  - **Demographic Data Detection**: Identifies potential personal data fields in your code
+  - **Class Hierarchy Table**: Searchable, tabular view of all class relationships
+- **Code Analysis**:
+  - **Code Quality Checks**: Detects code smells like long methods, excessive parameters, and magic numbers
+  - **Security Scanning**: Identifies potential security vulnerabilities and hardcoded credentials
+  - **Performance Analysis**: Highlights inefficient code patterns that might impact performance
+  - **Design Pattern Recognition**: Detects common design patterns in your Java code
+  - **Complexity Metrics**: Provides cyclomatic and cognitive complexity measures
 
 ## Deployment
 
@@ -81,6 +92,15 @@ This project is optimized for deployment on Replit:
 5. **Download the diagram**:
    - Select your preferred format (SVG or PNG)
    - Click the "Download" button to save the diagram to your computer
+   
+6. **Analyze your code**:
+   - Go to the "Data Analysis" section from the sidebar
+   - Use the "Analysis Summary" tab for a high-level overview of your codebase
+   - View the "Demographic Data Analysis" tab to identify potential personal data
+   - Explore the "Class Hierarchy Table" for a searchable view of relationships
+   - Use the "Code Analysis" tab to identify code quality, security and performance issues
+   - Select specific folders to analyze or analyze the entire codebase
+   - Download CSV reports of findings for offline review
 
 ### Understanding the Diagram
 
