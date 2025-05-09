@@ -630,6 +630,7 @@ def analyze_demographic_data(code: str) -> Dict:
             
             # Look for demographic keywords
             file_results = []
+            found_fields = set()  # To track unique fields already found
             
             for keyword in demographic_keywords:
                 # Various patterns to match demographic data fields
@@ -645,12 +646,15 @@ def analyze_demographic_data(code: str) -> Dict:
                 for pattern in patterns:
                     matches = re.findall(pattern, file_content, re.IGNORECASE)
                     for match in matches:
-                        occurrence = {
-                            "field": match,
-                            "keyword": keyword,
-                            "count": len(re.findall(r'\b' + re.escape(match) + r'\b', file_content))
-                        }
-                        file_results.append(occurrence)
+                        # Only add the field if it hasn't been found yet
+                        if match.lower() not in found_fields:
+                            found_fields.add(match.lower())
+                            occurrence = {
+                                "field": match,
+                                "keyword": keyword,
+                                "count": len(re.findall(r'\b' + re.escape(match) + r'\b', file_content))
+                            }
+                            file_results.append(occurrence)
             
             if file_results:
                 results[file] = file_results
