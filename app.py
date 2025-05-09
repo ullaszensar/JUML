@@ -13,6 +13,7 @@ from utils.parser import get_parser, ManualInputParser
 from utils.uml_generator import UMLGenerator
 from utils.data_models import ClassDefinition, Attribute, Method, Relationship, UMLDiagram
 from utils.test_uml import generate_test_uml
+from utils.code_analyzer import CodeAnalyzer
 
 # Set page title and configure layout
 st.set_page_config(
@@ -45,7 +46,7 @@ def display_help():
        - **Class Diagram**: Traditional UML class diagram showing all classes and relationships
        - **Package Diagram**: Shows relationships between packages in your code
        - **Hierarchy Explorer**: Interactive explorer for class hierarchies with details on hover
-       - **Data Analysis**: Analyze code for demographic data and visualize relationships in tabular format
+       - **Data Analysis**: Analyze code for demographic data, visualize relationships in tabular format, and perform comprehensive code quality analysis
     
     4. **View and download your diagram**
        - Class and Package diagrams can be downloaded in SVG or PNG format
@@ -76,6 +77,14 @@ def display_help():
       - Filter and search for specific classes
       - Understand inheritance and dependency patterns
       - Download the complete hierarchy as a CSV file
+      
+    - **Code Analysis**: Performs comprehensive code quality, security, and performance analysis
+      - Identify issues like long methods, magic numbers, and empty catch blocks
+      - Detect security vulnerabilities like SQL injection and hardcoded credentials
+      - Find performance issues like inefficient string operations
+      - Recognize common design patterns in your code
+      - Analyze specific folders or your entire codebase
+      - Export analysis results as CSV files
     """)
 
 
@@ -862,6 +871,258 @@ def main():
                 )
             else:
                 st.warning("No class relationships found in the diagram.")
+                
+        # Code Analysis Tab
+        with code_analysis_tab:
+            st.subheader("Code Analysis")
+            st.info("This section analyzes your code for quality, security, and performance issues.")
+            
+            if 'uploaded_code' in st.session_state and 'available_folders' in st.session_state:
+                # Create a code analyzer
+                analyzer = CodeAnalyzer()
+                
+                # Extract all Java files from the code for analysis
+                java_files = []
+                code_chunks = st.session_state.uploaded_code.split("# File: ")
+                
+                # Skip the first empty chunk
+                for chunk in code_chunks[1:]:
+                    lines = chunk.strip().split("\n", 1)
+                    if len(lines) >= 2:
+                        file_path = lines[0].strip()
+                        content = lines[1]
+                        java_files.append({
+                            "file_path": file_path,
+                            "content": content
+                        })
+                
+                # Let user select a folder to analyze
+                folder_options = ["All Folders"] + st.session_state.available_folders
+                selected_analysis_folder = st.selectbox(
+                    "Select a folder to analyze:",
+                    options=folder_options
+                )
+                
+                if selected_analysis_folder == "All Folders":
+                    # Analyze all files
+                    all_files_analysis = {}
+                    
+                    for file_info in java_files:
+                        file_result = analyzer.analyze_file(file_info["content"], file_info["file_path"])
+                        all_files_analysis[file_info["file_path"]] = file_result
+                    
+                    # Display a summary of results
+                    total_files = len(all_files_analysis)
+                    total_code_smells = sum(sum(len(smells) for smells in result["code_smells"].values()) 
+                                         for result in all_files_analysis.values())
+                    total_security_issues = sum(sum(len(issues) for issues in result["security_issues"].values()) 
+                                             for result in all_files_analysis.values())
+                    total_performance_issues = sum(sum(len(issues) for issues in result["performance_issues"].values()) 
+                                                for result in all_files_analysis.values())
+                    
+                    # Display metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Files Analyzed", total_files)
+                    with col2:
+                        st.metric("Code Smells", total_code_smells)
+                    with col3:
+                        st.metric("Security Issues", total_security_issues)
+                    with col4:
+                        st.metric("Performance Issues", total_performance_issues)
+                    
+                    # Display analysis details
+                    analysis_tabs = st.tabs(["Code Smells", "Security Issues", "Performance Issues", "Design Patterns"])
+                    
+                    with analysis_tabs[0]:
+                        st.subheader("Code Smell Analysis")
+                        
+                        code_smell_data = []
+                        for file_path, result in all_files_analysis.items():
+                            for smell_type, smells in result["code_smells"].items():
+                                for smell in smells:
+                                    if "name" in smell:  # Long methods and Too many parameters
+                                        code_smell_data.append({
+                                            "File": file_path,
+                                            "Type": smell_type.replace("_", " ").title(),
+                                            "Element": smell.get("name", ""),
+                                            "Details": f"{smell.get('lines', smell.get('parameter_count', ''))} (Threshold: {smell.get('threshold', '')})",
+                                            "Description": smell["description"]
+                                        })
+                                    else:  # Other code smells
+                                        code_smell_data.append({
+                                            "File": file_path,
+                                            "Type": smell_type.replace("_", " ").title(),
+                                            "Element": smell.get("match", ""),
+                                            "Details": "",
+                                            "Description": smell["description"]
+                                        })
+                        
+                        if code_smell_data:
+                            df = pd.DataFrame(code_smell_data)
+                            st.dataframe(df, use_container_width=True)
+                            
+                            # Add download option
+                            csv = df.to_csv(index=False)
+                            b64 = base64.b64encode(csv.encode()).decode()
+                            href = f'data:file/csv;base64,{b64}'
+                            st.markdown(
+                                f'<a href="{href}" download="code_smells.csv"><button style="padding: 0.5em 1em; '
+                                f'background-color: #4CAF50; color: white; border: none; '
+                                f'border-radius: 4px; cursor: pointer;">Download Code Smells (CSV)</button></a>',
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.success("No code smells detected.")
+                    
+                    with analysis_tabs[1]:
+                        st.subheader("Security Issue Analysis")
+                        
+                        security_data = []
+                        for file_path, result in all_files_analysis.items():
+                            for issue_type, issues in result["security_issues"].items():
+                                for issue in issues:
+                                    security_data.append({
+                                        "File": file_path,
+                                        "Issue Type": issue_type.replace("_", " ").title(),
+                                        "Code": issue.get("match", ""),
+                                        "Description": issue["description"]
+                                    })
+                        
+                        if security_data:
+                            df = pd.DataFrame(security_data)
+                            st.dataframe(df, use_container_width=True)
+                            
+                            # Add download option
+                            csv = df.to_csv(index=False)
+                            b64 = base64.b64encode(csv.encode()).decode()
+                            href = f'data:file/csv;base64,{b64}'
+                            st.markdown(
+                                f'<a href="{href}" download="security_issues.csv"><button style="padding: 0.5em 1em; '
+                                f'background-color: #FF5252; color: white; border: none; '
+                                f'border-radius: 4px; cursor: pointer;">Download Security Issues (CSV)</button></a>',
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.success("No security issues detected.")
+                    
+                    with analysis_tabs[2]:
+                        st.subheader("Performance Issue Analysis")
+                        
+                        performance_data = []
+                        for file_path, result in all_files_analysis.items():
+                            for issue_type, issues in result["performance_issues"].items():
+                                for issue in issues:
+                                    performance_data.append({
+                                        "File": file_path,
+                                        "Issue Type": issue_type.replace("_", " ").title(),
+                                        "Code": issue.get("match", ""),
+                                        "Description": issue["description"]
+                                    })
+                        
+                        if performance_data:
+                            df = pd.DataFrame(performance_data)
+                            st.dataframe(df, use_container_width=True)
+                            
+                            # Add download option
+                            csv = df.to_csv(index=False)
+                            b64 = base64.b64encode(csv.encode()).decode()
+                            href = f'data:file/csv;base64,{b64}'
+                            st.markdown(
+                                f'<a href="{href}" download="performance_issues.csv"><button style="padding: 0.5em 1em; '
+                                f'background-color: #FFC107; color: white; border: none; '
+                                f'border-radius: 4px; cursor: pointer;">Download Performance Issues (CSV)</button></a>',
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.success("No performance issues detected.")
+                    
+                    with analysis_tabs[3]:
+                        st.subheader("Design Pattern Detection")
+                        
+                        pattern_data = []
+                        for file_path, result in all_files_analysis.items():
+                            for pattern_type, patterns in result["design_patterns"].items():
+                                for pattern in patterns:
+                                    pattern_data.append({
+                                        "File": file_path,
+                                        "Pattern": pattern_type.replace("_", " ").title(),
+                                        "Code Fragment": pattern.get("match", ""),
+                                        "Description": pattern["description"]
+                                    })
+                        
+                        if pattern_data:
+                            df = pd.DataFrame(pattern_data)
+                            st.dataframe(df, use_container_width=True)
+                            
+                            # Add download option
+                            csv = df.to_csv(index=False)
+                            b64 = base64.b64encode(csv.encode()).decode()
+                            href = f'data:file/csv;base64,{b64}'
+                            st.markdown(
+                                f'<a href="{href}" download="design_patterns.csv"><button style="padding: 0.5em 1em; '
+                                f'background-color: #2196F3; color: white; border: none; '
+                                f'border-radius: 4px; cursor: pointer;">Download Design Patterns (CSV)</button></a>',
+                                unsafe_allow_html=True
+                            )
+                        else:
+                            st.warning("No design patterns detected.")
+                
+                else:
+                    # Analyze only the selected folder
+                    folder_analysis = analyzer.analyze_folder(selected_analysis_folder, java_files)
+                    
+                    # Display folder metrics
+                    metrics = folder_analysis["metrics"]
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Files", metrics["total_files"])
+                    with col2:
+                        st.metric("Classes", metrics["total_classes"])
+                    with col3:
+                        st.metric("Methods", metrics["total_methods"])
+                    with col4:
+                        st.metric("Avg. Complexity", round(metrics["avg_complexity"], 2))
+                    
+                    # More detailed metrics
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("Code Smells", metrics["total_code_smells"])
+                    with col2:
+                        st.metric("Security Issues", metrics["total_security_issues"])
+                    with col3:
+                        st.metric("Performance Issues", metrics["total_performance_issues"])
+                    
+                    # Display files in folder
+                    st.subheader(f"Files in {selected_analysis_folder}")
+                    
+                    file_results = folder_analysis["file_results"]
+                    if file_results:
+                        file_data = []
+                        for result in file_results:
+                            file_data.append({
+                                "File": result["file_path"],
+                                "Lines": result["metrics"]["total_lines"],
+                                "Classes": result["metrics"]["class_count"],
+                                "Methods": result["metrics"]["method_count"],
+                                "Complexity Rating": result["complexity"]["complexity_rating"],
+                                "Cyclomatic Complexity": result["complexity"]["cyclomatic_complexity"],
+                                "Cognitive Complexity": result["complexity"]["cognitive_complexity"],
+                                "Code Smells": sum(len(smells) for smells in result["code_smells"].values()),
+                                "Security Issues": sum(len(issues) for issues in result["security_issues"].values()),
+                                "Performance Issues": sum(len(issues) for issues in result["performance_issues"].values())
+                            })
+                        
+                        df = pd.DataFrame(file_data)
+                        st.dataframe(df, use_container_width=True)
+                    else:
+                        st.warning(f"No Java files found in {selected_analysis_folder}")
+            else:
+                st.warning("No code available for analysis. Please upload a ZIP file with Java code first.")
     
     # Initialize session state for the UML diagram
     if 'uml_diagram' not in st.session_state:

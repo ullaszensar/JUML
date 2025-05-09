@@ -81,6 +81,18 @@ Features:
 - **CSV Export**: Download the complete hierarchy table for offline analysis
 - **Package Information**: See which package each class belongs to
 
+#### Code Analysis
+This tab provides comprehensive code analysis to identify quality, security, and performance issues.
+
+Features:
+- **Folder Selection**: Analyze all folders or select specific folders to focus on
+- **Code Smell Detection**: Identifies issues like long methods, excessive parameters, magic numbers, etc.
+- **Security Analysis**: Detects potential security vulnerabilities like SQL injection and hardcoded credentials
+- **Performance Issue Detection**: Identifies inefficient code patterns that may impact performance
+- **Design Pattern Recognition**: Detects common design patterns like Singleton, Factory, Observer, etc.
+- **Complexity Metrics**: Measures cyclomatic and cognitive complexity of your code
+- **CSV Export**: Download analysis results for offline review
+
 ## Working with UML Diagrams
 
 ### Understanding Relationships

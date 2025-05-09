@@ -97,7 +97,6 @@ class CodeAnalyzer:
         self.design_patterns = {
             "singleton": {
                 "pattern": r'private\s+static\s+\w+\s+\w+Instance.*?private\s+\w+\s*\(.*?public\s+static\s+\w+\s+getInstance',
-                "regex_flags": re.DOTALL,
                 "description": "Singleton pattern: A class with a single instance that provides global access."
             },
             "factory_method": {
@@ -110,12 +109,10 @@ class CodeAnalyzer:
             },
             "builder": {
                 "pattern": r'class\s+\w+Builder.*?public\s+\w+\s+build\s*\(',
-                "regex_flags": re.DOTALL,
                 "description": "Builder pattern: Separates object construction from its representation."
             },
             "decorator": {
                 "pattern": r'class\s+\w+(?:Decorator|Wrapper).*?implements\s+\w+.*?private\s+\w+\s+wrapped',
-                "regex_flags": re.DOTALL,
                 "description": "Decorator pattern: Attaches additional responsibilities to objects dynamically."
             }
         }
@@ -234,13 +231,10 @@ class CodeAnalyzer:
         
         for smell_name, smell_info in self.code_smells.items():
             pattern = smell_info["pattern"]
-            flags = smell_info.get("regex_flags", 0)
-            if isinstance(flags, str):
-                flags = 0
             
             if smell_name == "long_method":
                 # Special handling for long methods
-                matches = re.finditer(pattern, code, flags)
+                matches = re.finditer(pattern, code)
                 results[smell_name] = []
                 
                 for match in matches:
@@ -258,7 +252,7 @@ class CodeAnalyzer:
             
             elif smell_name == "too_many_parameters":
                 # Special handling for methods with too many parameters
-                matches = re.finditer(pattern, code, flags)
+                matches = re.finditer(pattern, code)
                 results[smell_name] = []
                 
                 for match in matches:
@@ -280,7 +274,7 @@ class CodeAnalyzer:
             
             elif smell_name == "magic_numbers":
                 # Special handling for magic numbers
-                matches = re.finditer(pattern, code, flags)
+                matches = re.finditer(pattern, code)
                 results[smell_name] = []
                 exclude_pattern = smell_info.get("exclude", r"$^")  # Never match by default
                 
@@ -295,7 +289,7 @@ class CodeAnalyzer:
             
             else:
                 # General handling for other code smells
-                matches = re.finditer(pattern, code, flags)
+                matches = re.finditer(pattern, code)
                 results[smell_name] = []
                 
                 for match in matches:
@@ -312,11 +306,8 @@ class CodeAnalyzer:
         
         for issue_name, issue_info in self.security_issues.items():
             pattern = issue_info["pattern"]
-            flags = issue_info.get("regex_flags", 0)
-            if isinstance(flags, str):
-                flags = 0
-                
-            matches = re.finditer(pattern, code, flags)
+            
+            matches = re.finditer(pattern, code)
             results[issue_name] = []
             
             for match in matches:
@@ -333,9 +324,8 @@ class CodeAnalyzer:
         
         for issue_name, issue_info in self.performance_issues.items():
             pattern = issue_info["pattern"]
-            flags = issue_info.get("regex_flags", 0)
             
-            matches = re.finditer(pattern, code, flags)
+            matches = re.finditer(pattern, code)
             results[issue_name] = []
             
             for match in matches:
@@ -352,16 +342,19 @@ class CodeAnalyzer:
         
         for pattern_name, pattern_info in self.design_patterns.items():
             pattern = pattern_info["pattern"]
-            flags = pattern_info.get("regex_flags", 0)
             
-            matches = re.finditer(pattern, code, flags)
-            results[pattern_name] = []
-            
-            for match in matches:
-                results[pattern_name].append({
-                    "match": match.group(0)[:50] + "..." if len(match.group(0)) > 50 else match.group(0),
-                    "description": pattern_info["description"]
-                })
+            try:
+                matches = re.finditer(pattern, code, re.DOTALL)
+                results[pattern_name] = []
+                
+                for match in matches:
+                    results[pattern_name].append({
+                        "match": match.group(0)[:50] + "..." if len(match.group(0)) > 50 else match.group(0),
+                        "description": pattern_info["description"]
+                    })
+            except:
+                # If regex fails, continue with empty results
+                results[pattern_name] = []
         
         return results
     
