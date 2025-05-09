@@ -723,19 +723,92 @@ def main():
             return
             
         # Create tabs for different analysis views
-        demo_tab, hierarchy_tab = st.tabs(["Demographic Data Analysis", "Class Hierarchy Table"])
+        summary_tab, demo_tab, hierarchy_tab = st.tabs(["Analysis Summary", "Demographic Data Analysis", "Class Hierarchy Table"])
         
+        # First, get data for all tabs
+        demographic_data = {}
+        if 'uploaded_code' in st.session_state:
+            code = st.session_state.uploaded_code
+            demographic_data = analyze_demographic_data(code)
+        
+        # Generate hierarchy table
+        hierarchy_df = generate_hierarchy_table(st.session_state.uml_diagram)
+        
+        # Summary Tab
+        with summary_tab:
+            st.subheader("Data Analysis Summary")
+            
+            # Create overall metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Classes", len(st.session_state.uml_diagram.classes))
+            with col2:
+                st.metric("Total Relationships", len(st.session_state.uml_diagram.relationships))
+            with col3:
+                total_demographic_fields = sum(len(occurrences) for occurrences in demographic_data.values()) if demographic_data else 0
+                st.metric("Demographic Data Fields", total_demographic_fields)
+            
+            # Class structure summary
+            st.subheader("Class Structure Summary")
+            
+            # Collect package statistics
+            packages = {}
+            for cls in st.session_state.uml_diagram.classes:
+                package_name = cls.package if cls.package else "Default"
+                if package_name not in packages:
+                    packages[package_name] = 0
+                packages[package_name] += 1
+            
+            # Package statistics
+            if packages:
+                st.write("**Classes by Package:**")
+                package_data = [{"Package": pkg, "Number of Classes": count} for pkg, count in packages.items()]
+                st.dataframe(pd.DataFrame(package_data), use_container_width=True)
+            
+            # Demographic data summary
+            st.subheader("Demographic Data Summary")
+            if demographic_data:
+                # Create a consolidated summary of all demographic data
+                all_fields = []
+                for file, occurrences in demographic_data.items():
+                    for occurrence in occurrences:
+                        all_fields.append({
+                            "File": file,
+                            "Field": occurrence["field"],
+                            "Type": occurrence["keyword"],
+                            "Occurrences": occurrence["count"]
+                        })
+                
+                if all_fields:
+                    st.dataframe(pd.DataFrame(all_fields), use_container_width=True)
+                    
+                    # Add download option for the summary
+                    csv = pd.DataFrame(all_fields).to_csv(index=False)
+                    b64 = base64.b64encode(csv.encode()).decode()
+                    href = f'data:file/csv;base64,{b64}'
+                    st.markdown(
+                        f'<a href="{href}" download="demographic_data_summary.csv"><button style="padding: 0.5em 1em; '
+                        f'background-color: #4CAF50; color: white; border: none; '
+                        f'border-radius: 4px; cursor: pointer;">Download Demographic Data Summary (CSV)</button></a>',
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.success("No obvious demographic data fields were found in the code.")
+            
+            # Relationship statistics
+            if not hierarchy_df.empty:
+                st.subheader("Relationship Type Summary")
+                relationship_counts = hierarchy_df["Relationship Type"].value_counts().reset_index()
+                relationship_counts.columns = ["Relationship Type", "Count"]
+                st.dataframe(relationship_counts, use_container_width=True)
+        
+        # Demographic Data Analysis Tab    
         with demo_tab:
             st.subheader("Demographic Data Analysis")
             st.info("This analysis identifies potential demographic data fields in your Java code.")
             
             # Get the uploaded code if available
             if 'uploaded_code' in st.session_state:
-                code = st.session_state.uploaded_code
-                
-                # Analyze the code for demographic data
-                demographic_data = analyze_demographic_data(code)
-                
                 if demographic_data:
                     st.warning(f"Found potential demographic data fields in {len(demographic_data)} files.")
                     
@@ -759,12 +832,10 @@ def main():
             else:
                 st.warning("No code available for analysis. Please upload a ZIP file with Java code first.")
         
+        # Class Hierarchy Tab
         with hierarchy_tab:
             st.subheader("Class Hierarchy and Relationships")
             st.info("This table shows all class relationships in your code.")
-            
-            # Generate hierarchy table
-            hierarchy_df = generate_hierarchy_table(st.session_state.uml_diagram)
             
             if not hierarchy_df.empty:
                 # Add search and filter capabilities

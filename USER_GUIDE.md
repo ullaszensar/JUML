@@ -52,6 +52,16 @@ Features:
 
 The Data Analysis section provides additional insights into your code structure and potential sensitive data.
 
+#### Analysis Summary
+This tab provides an overview of all key metrics and findings in your codebase.
+
+Features:
+- **Key Metrics**: Shows total classes, relationships, and demographic data fields
+- **Class Structure Summary**: Displays distribution of classes across packages
+- **Demographic Data Summary**: Consolidated table of all demographic fields found across all files
+- **Relationship Type Summary**: Statistical breakdown of relationship types in your code
+- **CSV Export**: Download the full demographic data summary for offline analysis
+
 #### Demographic Data Analysis
 This tab scans your Java code for fields that might store demographic or personal information.
 
