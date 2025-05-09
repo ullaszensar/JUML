@@ -10,7 +10,7 @@ This guide provides detailed instructions on how to use JUML to generate UML cla
 
 ## Understanding the Interface
 
-JUML provides three main views for analyzing your code:
+JUML provides four main views for analyzing your code:
 
 ### 1. Class Diagram
 
@@ -46,6 +46,29 @@ Features:
 - **Tabbed Information**: Attributes, methods, and children are organized in tabs
 - **Child Navigation**: Click on child classes to explore deeper into the hierarchy
 - **Package Filtering**: Filter the hierarchy to focus on classes in a specific package
+
+### 4. Data Analysis
+
+The Data Analysis section provides additional insights into your code structure and potential sensitive data.
+
+#### Demographic Data Analysis
+This tab scans your Java code for fields that might store demographic or personal information.
+
+Features:
+- **Automated Detection**: Identifies fields related to personal data like names, addresses, gender, etc.
+- **File-level Reports**: Shows which files contain potential sensitive data fields
+- **Occurrence Counting**: Reports how frequently each field appears in the code
+- **Tabular Display**: Each file's data is presented in a clear, organized table
+
+#### Class Hierarchy Table
+This tab presents class relationships in a searchable, tabular format.
+
+Features:
+- **Comprehensive View**: Shows all relationships between classes in your codebase
+- **Search Functionality**: Find specific classes and their relationships
+- **Relationship Types**: Displays inheritance, association, dependency, etc.
+- **CSV Export**: Download the complete hierarchy table for offline analysis
+- **Package Information**: See which package each class belongs to
 
 ## Working with UML Diagrams
 

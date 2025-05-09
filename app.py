@@ -5,6 +5,8 @@ import json
 import zipfile
 import os
 import tempfile
+import re
+import pandas as pd
 from typing import Dict, List, Any, Optional
 
 from utils.parser import get_parser, ManualInputParser
@@ -36,14 +38,16 @@ def display_help():
        - The application will automatically extract all `.java` files
        - All extracted code is combined and analyzed together
     
-    2. **Choose your diagram type**
+    2. **Choose your diagram type or analysis tool**
        - **Class Diagram**: Traditional UML class diagram showing all classes and relationships
        - **Package Diagram**: Shows relationships between packages in your code
        - **Hierarchy Explorer**: Interactive explorer for class hierarchies with details on hover
+       - **Data Analysis**: Analyze code for demographic data and visualize relationships in tabular format
     
     3. **View and download your diagram**
        - Class and Package diagrams can be downloaded in SVG or PNG format
        - Use the package filter dropdown to focus on specific packages
+       - Data analysis tables can be downloaded as CSV files
     
     ### UML Notation
     - Visibility: `+` (public), `-` (private), `#` (protected)
@@ -59,6 +63,16 @@ def display_help():
     - Expand and collapse classes to explore inheritance relationships
     - View detailed class information including attributes and methods
     - Filter by package to focus on specific parts of your codebase
+    
+    ### Data Analysis Features
+    - **Demographic Data Analysis**: Scans your code for potential demographic data fields and occurrences
+      - Identifies fields that might store personal or sensitive information
+      - Shows which files contain these fields and how frequently they appear
+    
+    - **Class Hierarchy Table**: Shows all class relationships in a searchable tabular format
+      - Filter and search for specific classes
+      - Understand inheritance and dependency patterns
+      - Download the complete hierarchy as a CSV file
     """)
 
 
@@ -553,6 +567,97 @@ def display_class_details(class_name: str, classes: List[ClassDefinition],
                 st.info("No children classes inherit from this class.")
 
 
+def analyze_demographic_data(code: str) -> Dict:
+    """
+    Analyze Java code for potential demographic data fields and occurrences
+    
+    Returns a dictionary of files, fields, and occurrences
+    """
+    demographic_keywords = [
+        "gender", "sex", "race", "ethnicity", "nationality", "religion", 
+        "age", "dateOfBirth", "birthDate", "dob", "ssn", "socialSecurity",
+        "passport", "disability", "marital", "income", "salary", "address",
+        "zipCode", "postalCode", "phone", "email", "firstName", "lastName",
+        "fullName", "name"
+    ]
+    
+    results = {}
+    file_pattern = r'# File: (.+?)[\r\n]+'
+    
+    # Find all files in the code
+    files = re.findall(file_pattern, code)
+    
+    for file in files:
+        # Extract file content
+        file_pattern_specific = r'# File: ' + re.escape(file) + r'[\r\n]+(.+?)(?=# File:|$)'
+        file_matches = re.findall(file_pattern_specific, code, re.DOTALL)
+        
+        if file_matches:
+            file_content = file_matches[0]
+            
+            # Look for demographic keywords
+            file_results = []
+            
+            for keyword in demographic_keywords:
+                # Various patterns to match demographic data fields
+                patterns = [
+                    # Field declaration
+                    r'(?:private|protected|public)\s+\w+\s+(' + keyword + r'\w*)',
+                    # Camel case variations
+                    r'(?:private|protected|public)\s+\w+\s+(\w*' + keyword.capitalize() + r'\w*)',
+                    # Getter/setter methods
+                    r'(?:get|set)(' + keyword.capitalize() + r'\w*)\s*\(',
+                ]
+                
+                for pattern in patterns:
+                    matches = re.findall(pattern, file_content, re.IGNORECASE)
+                    for match in matches:
+                        occurrence = {
+                            "field": match,
+                            "keyword": keyword,
+                            "count": len(re.findall(r'\b' + re.escape(match) + r'\b', file_content))
+                        }
+                        file_results.append(occurrence)
+            
+            if file_results:
+                results[file] = file_results
+    
+    return results
+
+
+def generate_hierarchy_table(uml_diagram: UMLDiagram) -> pd.DataFrame:
+    """
+    Generate a tabular representation of class hierarchies and relationships
+    
+    Returns a pandas DataFrame with class relationships
+    """
+    relationships_data = []
+    
+    for rel in uml_diagram.relationships:
+        # Find source and target class definitions
+        source_class = next((cls for cls in uml_diagram.classes if cls.name == rel.source), None)
+        target_class = next((cls for cls in uml_diagram.classes if cls.name == rel.target), None)
+        
+        source_package = source_class.package if source_class and source_class.package else "Default"
+        target_package = target_class.package if target_class and target_class.package else "Default"
+        
+        # Create a record for this relationship
+        relationship = {
+            "Source Class": rel.source,
+            "Source Package": source_package,
+            "Relationship Type": rel.type.capitalize(),
+            "Target Class": rel.target,
+            "Target Package": target_package,
+            "Label": rel.label,
+            "Multiplicity": rel.multiplicity
+        }
+        
+        relationships_data.append(relationship)
+    
+    # Convert to DataFrame
+    return pd.DataFrame(relationships_data)
+
+
 def main():
     """Main function to run the Streamlit app"""
     st.title("JUML - UML Class Diagram Generator")
@@ -560,7 +665,7 @@ def main():
     # Sidebar for navigation
     sidebar_option = st.sidebar.radio(
         "Navigation",
-        ["Generate Diagram", "Test Diagram", "Help"]
+        ["Generate Diagram", "Test Diagram", "Data Analysis", "Help"]
     )
     
     if sidebar_option == "Help":
@@ -571,6 +676,84 @@ def main():
         st.info("This is a test page to verify diagram generation with simple test data.")
         generate_test_uml()
         return
+        
+    if sidebar_option == "Data Analysis":
+        st.header("Code Data Analysis")
+        
+        # Ensure we have a UML diagram
+        if 'uml_diagram' not in st.session_state or not st.session_state.uml_diagram.classes:
+            st.warning("No data available for analysis. Please upload a ZIP file with Java code first.")
+            return
+            
+        # Create tabs for different analysis views
+        demo_tab, hierarchy_tab = st.tabs(["Demographic Data Analysis", "Class Hierarchy Table"])
+        
+        with demo_tab:
+            st.subheader("Demographic Data Analysis")
+            st.info("This analysis identifies potential demographic data fields in your Java code.")
+            
+            # Get the uploaded code if available
+            if 'uploaded_code' in st.session_state:
+                code = st.session_state.uploaded_code
+                
+                # Analyze the code for demographic data
+                demographic_data = analyze_demographic_data(code)
+                
+                if demographic_data:
+                    st.warning(f"Found potential demographic data fields in {len(demographic_data)} files.")
+                    
+                    # Display a table for each file with demographic data
+                    for file, occurrences in demographic_data.items():
+                        st.write(f"**File:** `{file}`")
+                        
+                        # Create a DataFrame for display
+                        data = []
+                        for occurrence in occurrences:
+                            data.append({
+                                "Field": occurrence["field"],
+                                "Related Keyword": occurrence["keyword"],
+                                "Occurrences": occurrence["count"]
+                            })
+                        
+                        df = pd.DataFrame(data)
+                        st.dataframe(df, use_container_width=True)
+                else:
+                    st.success("No obvious demographic data fields were found in the code.")
+            else:
+                st.warning("No code available for analysis. Please upload a ZIP file with Java code first.")
+        
+        with hierarchy_tab:
+            st.subheader("Class Hierarchy and Relationships")
+            st.info("This table shows all class relationships in your code.")
+            
+            # Generate hierarchy table
+            hierarchy_df = generate_hierarchy_table(st.session_state.uml_diagram)
+            
+            if not hierarchy_df.empty:
+                # Add search and filter capabilities
+                search_term = st.text_input("Search for class:", "")
+                
+                if search_term:
+                    filtered_df = hierarchy_df[
+                        hierarchy_df["Source Class"].str.contains(search_term, case=False) | 
+                        hierarchy_df["Target Class"].str.contains(search_term, case=False)
+                    ]
+                    st.dataframe(filtered_df, use_container_width=True)
+                else:
+                    st.dataframe(hierarchy_df, use_container_width=True)
+                
+                # Download option
+                csv = hierarchy_df.to_csv(index=False)
+                b64 = base64.b64encode(csv.encode()).decode()
+                href = f'data:file/csv;base64,{b64}'
+                st.markdown(
+                    f'<a href="{href}" download="class_hierarchy.csv"><button style="padding: 0.5em 1em; '
+                    f'background-color: #4CAF50; color: white; border: none; '
+                    f'border-radius: 4px; cursor: pointer;">Download Hierarchy Table (CSV)</button></a>',
+                    unsafe_allow_html=True
+                )
+            else:
+                st.warning("No class relationships found in the diagram.")
     
     # Initialize session state for the UML diagram
     if 'uml_diagram' not in st.session_state:
@@ -591,6 +774,9 @@ def main():
             try:
                 code = process_zip_file(uploaded_file, language)
                 if code:
+                    # Save the code in session state for data analysis
+                    st.session_state.uploaded_code = code
+                    
                     # Preview of extracted code
                     with st.expander("Preview of extracted code"):
                         preview_length = min(1000, len(code))
