@@ -732,7 +732,7 @@ def main():
             return
             
         # Create tabs for different analysis views
-        summary_tab, demo_tab, hierarchy_tab, code_analysis_tab = st.tabs(["Analysis Summary", "Demographic Data Analysis", "Class Hierarchy Table", "Code Analysis"])
+        summary_tab, demo_tab, demo_summary_tab, hierarchy_tab, code_analysis_tab = st.tabs(["Analysis Summary", "Demographic Data Analysis", "Demographic Summary", "Class Hierarchy Table", "Code Analysis"])
         
         # First, get data for all tabs
         demographic_data = {}
@@ -922,6 +922,106 @@ def main():
                         
                         df = pd.DataFrame(data)
                         st.dataframe(df, use_container_width=True)
+                else:
+                    st.success("No obvious demographic data fields were found in the code.")
+            else:
+                st.warning("No code available for analysis. Please upload a ZIP file with Java code first.")
+        
+        # Demographic Summary Tab
+        with demo_summary_tab:
+            st.subheader("Demographic Data Summary")
+            st.info("This tab shows a focused summary of only files containing demographic data.")
+            
+            if 'uploaded_code' in st.session_state:
+                if demographic_data:
+                    # Extract all Java files from the code for analysis
+                    java_files = []
+                    code_chunks = st.session_state.uploaded_code.split("# File: ")
+                    
+                    # Skip the first empty chunk
+                    for chunk in code_chunks[1:]:
+                        lines = chunk.strip().split("\n", 1)
+                        if len(lines) >= 2:
+                            file_path = lines[0].strip()
+                            content = lines[1]
+                            java_files.append({
+                                "file_path": file_path,
+                                "content": content
+                            })
+                    
+                    # Create summary of only files with demographic data
+                    demographic_file_summaries = []
+                    
+                    for file_info in java_files:
+                        file_path = file_info["file_path"]
+                        content = file_info["content"]
+                        
+                        # Only include files with demographic data
+                        if demographic_data and file_path in demographic_data:
+                            # Determine primary purpose based on keywords and patterns
+                            purpose = "Unknown"
+                            if re.search(r'class\s+\w+\s+(?:extends|implements)\s+.*?(?:Controller|Resource|RestController|Handler)', content, re.IGNORECASE):
+                                purpose = "Controller/API"
+                            elif re.search(r'class\s+\w+\s+(?:extends|implements)\s+.*?(?:Repository|DAO)', content, re.IGNORECASE):
+                                purpose = "Data Access"
+                            elif re.search(r'class\s+\w+\s+(?:extends|implements)\s+.*?(?:Service|Manager)', content, re.IGNORECASE):
+                                purpose = "Service"
+                            elif re.search(r'@Entity|@Table', content, re.IGNORECASE):
+                                purpose = "Entity/Model"
+                            elif re.search(r'class\s+.*?(?:Exception|Error)\s*\{', content, re.IGNORECASE):
+                                purpose = "Exception"
+                            elif re.search(r'interface\s+\w+', content, re.IGNORECASE):
+                                purpose = "Interface"
+                            elif len(re.findall(r'class\s+\w+', content)) > 0 and len(re.findall(r'(?:public|private|protected)\s+(?:static\s+)?(?:\w+)\s+(\w+)\s*\([^)]*\)', content)) == 0:
+                                purpose = "Data Class"
+                            elif re.search(r'enum\s+\w+', content, re.IGNORECASE):
+                                purpose = "Enumeration"
+                            elif len(re.findall(r'class\s+\w+', content)) > 0:
+                                purpose = "Business Logic"
+                            
+                            # Get demographic fields
+                            demographic_fields = [item["field"] for item in demographic_data[file_path]]
+                            
+                            # Add summary
+                            summary_text = f"This {purpose.lower()} file contains demographic data fields: {', '.join(demographic_fields)}"
+                            
+                            # Get specific demographic field details
+                            field_details = []
+                            for item in demographic_data[file_path]:
+                                field_details.append(f"{item['field']} ({item['keyword']})")
+                                
+                            # Add to summary table
+                            demographic_file_summaries.append({
+                                "File": file_path,
+                                "File Type": purpose,
+                                "Summary": summary_text,
+                                "Demographic Fields": ", ".join(demographic_fields),
+                                "Field Details": ", ".join(field_details)
+                            })
+                    
+                    # Display the demographic summary table
+                    if demographic_file_summaries:
+                        st.write(f"**Found {len(demographic_file_summaries)} files containing demographic data:**")
+                        st.dataframe(pd.DataFrame(demographic_file_summaries), use_container_width=True)
+                        
+                        # Add download option
+                        csv = pd.DataFrame(demographic_file_summaries).to_csv(index=False)
+                        b64 = base64.b64encode(csv.encode()).decode()
+                        href = f'data:file/csv;base64,{b64}'
+                        st.markdown(
+                            f'<a href="{href}" download="demographic_files_summary.csv"><button style="padding: 0.5em 1em; '
+                            f'background-color: #4CAF50; color: white; border: none; '
+                            f'border-radius: 4px; cursor: pointer;">Download Demographic Files Summary (CSV)</button></a>',
+                            unsafe_allow_html=True
+                        )
+                        
+                        # Show count by file type
+                        st.subheader("Demographic Data by File Type")
+                        file_type_counts = pd.DataFrame(demographic_file_summaries)["File Type"].value_counts().reset_index()
+                        file_type_counts.columns = ["File Type", "Count"]
+                        st.dataframe(file_type_counts, use_container_width=True)
+                    else:
+                        st.success("No demographic data found in the analyzed files.")
                 else:
                     st.success("No obvious demographic data fields were found in the code.")
             else:

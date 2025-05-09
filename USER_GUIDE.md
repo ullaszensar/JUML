@@ -76,6 +76,17 @@ Features:
 - **Occurrence Counting**: Reports how frequently each field appears in the code
 - **Tabular Display**: Each file's data is presented in a clear, organized table
 
+#### Demographic Summary
+This tab provides a dedicated summary focused only on files containing demographic data.
+
+Features:
+- **Focused View**: Shows only files containing demographic or personal information
+- **File Type Classification**: Identifies what each file does (Controller, Service, Entity, etc.)
+- **Summary Text**: Provides a concise summary of what demographic data each file contains
+- **Field Details**: Shows both field names and their detected demographic categories
+- **File Type Statistics**: Displays a breakdown of which types of files contain demographic data
+- **CSV Export**: Download the complete demographic files summary for compliance review
+
 #### Class Hierarchy Table
 This tab presents class relationships in a searchable, tabular format.
 
