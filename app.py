@@ -723,7 +723,7 @@ def main():
             return
             
         # Create tabs for different analysis views
-        summary_tab, demo_tab, hierarchy_tab = st.tabs(["Analysis Summary", "Demographic Data Analysis", "Class Hierarchy Table"])
+        summary_tab, demo_tab, hierarchy_tab, code_analysis_tab = st.tabs(["Analysis Summary", "Demographic Data Analysis", "Class Hierarchy Table", "Code Analysis"])
         
         # First, get data for all tabs
         demographic_data = {}
