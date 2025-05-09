@@ -7,6 +7,7 @@ This guide provides detailed instructions on how to use JUML to generate UML cla
 1. **Access the JUML application** through your web browser
 2. **Prepare your Java code** by organizing your `.java` files and compressing them into a ZIP file
 3. **Upload the ZIP file** to JUML using the file uploader on the main page
+4. **Select folders to include** in your diagram to focus on specific parts of your codebase
 
 ## Understanding the Interface
 
@@ -87,9 +88,22 @@ JUML displays different types of relationships between classes:
 
 1. **Organize code into packages**: JUML works best when your code is organized into logical packages
 2. **Include complete class hierarchies**: Include both parent and child classes for accurate inheritance visualization
-3. **Use package filtering**: For large codebases, use the package filter to focus on specific areas
-4. **Hierarchy Explorer for inheritance**: Use the Hierarchy Explorer to understand inheritance relationships more clearly
-5. **Download SVG for editing**: SVG format allows further editing in vector graphics software
+3. **Use folder selection**: When uploading a ZIP file, select specific folders to include only relevant parts of your codebase
+4. **Use package filtering**: For large codebases, use the package filter to focus on specific areas
+5. **Hierarchy Explorer for inheritance**: Use the Hierarchy Explorer to understand inheritance relationships more clearly
+6. **Download SVG for editing**: SVG format allows further editing in vector graphics software
+
+### Using Folder Selection
+
+The folder selection feature helps you manage large codebases by letting you focus on specific parts:
+
+1. **Upload your ZIP file** containing Java code
+2. **Review the available folders** extracted from your ZIP file
+3. **Select the folders** you want to include in your diagram analysis
+   - You can select multiple folders
+   - JUML will only process Java files from the selected folders
+   - Sub-folders of selected folders are automatically included
+4. **Click "Generate Diagram"** to process only the selected folders
 
 ## Troubleshooting
 

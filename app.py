@@ -32,19 +32,22 @@ def display_help():
     
     JUML makes it easy to generate UML class diagrams from your code:
     
-    ### Simple 2-Step Process
+    ### Simple 3-Step Process
     
     1. **Upload a ZIP file** containing your Java code files
-       - The application will automatically extract all `.java` files
-       - All extracted code is combined and analyzed together
+       - The application will automatically extract the folder structure
+       
+    2. **Select folders to include**
+       - Choose which folders from your ZIP file to include in the diagram
+       - You can select multiple folders to filter your code
     
-    2. **Choose your diagram type or analysis tool**
+    3. **Choose your diagram type or analysis tool**
        - **Class Diagram**: Traditional UML class diagram showing all classes and relationships
        - **Package Diagram**: Shows relationships between packages in your code
        - **Hierarchy Explorer**: Interactive explorer for class hierarchies with details on hover
        - **Data Analysis**: Analyze code for demographic data and visualize relationships in tabular format
     
-    3. **View and download your diagram**
+    4. **View and download your diagram**
        - Class and Package diagrams can be downloaded in SVG or PNG format
        - Use the package filter dropdown to focus on specific packages
        - Data analysis tables can be downloaded as CSV files
@@ -108,8 +111,14 @@ def get_download_link(diagram: UMLDiagram, file_format: str, diagram_type: str =
             href = f'data:image/png;base64,{b64}'
             return href, 'png'
         
-def process_zip_file(uploaded_zip, language: str):
-    """Process a zip file containing code files"""
+def process_zip_file(uploaded_zip, language: str, selected_folders=None):
+    """Process a zip file containing code files
+    
+    Args:
+        uploaded_zip: The uploaded ZIP file
+        language: Programming language to filter files by extension
+        selected_folders: Optional list of folders to include (if None, include all)
+    """
     # Create a temporary directory
     with tempfile.TemporaryDirectory() as temp_dir:
         # Write zip content to a temporary file
@@ -137,8 +146,32 @@ def process_zip_file(uploaded_zip, language: str):
         # Initialize an empty string to store all code
         all_code = ""
         
+        # Get a list of all folders in the extracted zip
+        folder_list = []
+        for root, dirs, files in os.walk(temp_dir):
+            rel_path = os.path.relpath(root, temp_dir)
+            if rel_path != '.':  # Skip the root directory
+                folder_list.append(rel_path)
+        
+        # Store the folder list in session state for later use
+        st.session_state.available_folders = folder_list
+        
         # Walk through the directory and get all relevant files
         for root, dirs, files in os.walk(temp_dir):
+            rel_path = os.path.relpath(root, temp_dir)
+            
+            # Skip folders that aren't selected (if folders are specified)
+            if selected_folders and rel_path != '.':
+                # Check if this folder or any parent folder is selected
+                is_selected = False
+                for folder in selected_folders:
+                    if rel_path == folder or rel_path.startswith(folder + os.sep):
+                        is_selected = True
+                        break
+                
+                if not is_selected:
+                    continue
+            
             for file in files:
                 # Check if the file has a matching extension
                 if any(file.endswith(ext) for ext in file_extensions):
@@ -767,12 +800,49 @@ def main():
     st.write("Upload a ZIP file containing your code files")
     uploaded_file = st.file_uploader("Choose a ZIP file", type="zip")
     
-    # Automatic diagram generation when file is uploaded
+    # Show folder selection only after file is uploaded
+    selected_folders = None
     if uploaded_file is not None:
-        # Process the uploaded ZIP file
-        with st.spinner(f"Processing ZIP file: {uploaded_file.name}..."):
+        # First scan the ZIP file to extract folder structure without processing files
+        with st.spinner("Extracting folder structure from ZIP file..."):
             try:
-                code = process_zip_file(uploaded_file, language)
+                # Do an initial scan to get folders (will set st.session_state.available_folders)
+                process_zip_file(uploaded_file, language)
+                
+                # Now show a folder selection widget if folders were found
+                if 'available_folders' in st.session_state and st.session_state.available_folders:
+                    st.write("Select folders to include in the diagram:")
+                    # Default all folders to selected
+                    if 'selected_folders' not in st.session_state:
+                        st.session_state.selected_folders = st.session_state.available_folders.copy()
+                    
+                    # Allow the user to select which folders to include
+                    selected_folders = st.multiselect(
+                        "Folders to include in diagram",
+                        options=st.session_state.available_folders,
+                        default=st.session_state.selected_folders
+                    )
+                    
+                    # Save selection to session state
+                    st.session_state.selected_folders = selected_folders
+                    
+                    # Generate Button to process selected folders
+                    generate_diagram = st.button("Generate Diagram from Selected Folders")
+                else:
+                    st.info("No folders found in ZIP file. Will process all files.")
+                    generate_diagram = True
+            except Exception as e:
+                st.error(f"Error examining ZIP file structure: {str(e)}")
+                generate_diagram = False
+    else:
+        generate_diagram = False
+    
+    # Automatic diagram generation when generate button is clicked
+    if uploaded_file is not None and generate_diagram:
+        # Process the uploaded ZIP file
+        with st.spinner(f"Processing ZIP file: {uploaded_file.name} with selected folders..."):
+            try:
+                code = process_zip_file(uploaded_file, language, selected_folders)
                 if code:
                     # Save the code in session state for data analysis
                     st.session_state.uploaded_code = code
@@ -794,7 +864,10 @@ def main():
                     except Exception as e:
                         st.error(f"Error parsing code: {str(e)}")
                 else:
-                    st.warning(f"No {language} files found in the ZIP file.")
+                    if selected_folders:
+                        st.warning(f"No {language} files found in the selected folders.")
+                    else:
+                        st.warning(f"No {language} files found in the ZIP file.")
             except Exception as e:
                 st.error(f"Error processing ZIP file: {str(e)}")
     
