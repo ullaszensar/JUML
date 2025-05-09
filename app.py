@@ -774,6 +774,92 @@ def main():
                 package_data = [{"Package": pkg, "Number of Classes": count} for pkg, count in packages.items()]
                 st.dataframe(pd.DataFrame(package_data), use_container_width=True)
             
+            # File Summary Table
+            st.subheader("Java File Summary")
+            if 'uploaded_code' in st.session_state:
+                # Extract all Java files from the code for analysis
+                java_files = []
+                code_chunks = st.session_state.uploaded_code.split("# File: ")
+                
+                # Skip the first empty chunk
+                for chunk in code_chunks[1:]:
+                    lines = chunk.strip().split("\n", 1)
+                    if len(lines) >= 2:
+                        file_path = lines[0].strip()
+                        content = lines[1]
+                        java_files.append({
+                            "file_path": file_path,
+                            "content": content
+                        })
+                
+                # Create summary for each file
+                file_summaries = []
+                for file_info in java_files:
+                    file_path = file_info["file_path"]
+                    content = file_info["content"]
+                    
+                    # Count classes, methods and attributes
+                    class_count = len(re.findall(r'class\s+\w+', content))
+                    interface_count = len(re.findall(r'interface\s+\w+', content))
+                    method_count = len(re.findall(r'(?:public|private|protected)\s+(?:static\s+)?(?:\w+)\s+(\w+)\s*\([^)]*\)', content))
+                    
+                    # Determine primary purpose based on keywords and patterns
+                    purpose = "Unknown"
+                    if re.search(r'class\s+\w+\s+(?:extends|implements)\s+.*?(?:Controller|Resource|RestController|Handler)', content, re.IGNORECASE):
+                        purpose = "Controller/API"
+                    elif re.search(r'class\s+\w+\s+(?:extends|implements)\s+.*?(?:Repository|DAO)', content, re.IGNORECASE):
+                        purpose = "Data Access"
+                    elif re.search(r'class\s+\w+\s+(?:extends|implements)\s+.*?(?:Service|Manager)', content, re.IGNORECASE):
+                        purpose = "Service"
+                    elif re.search(r'@Entity|@Table', content, re.IGNORECASE):
+                        purpose = "Entity/Model"
+                    elif re.search(r'class\s+.*?(?:Exception|Error)\s*\{', content, re.IGNORECASE):
+                        purpose = "Exception"
+                    elif re.search(r'interface\s+\w+', content, re.IGNORECASE):
+                        purpose = "Interface"
+                    elif class_count > 0 and method_count == 0:
+                        purpose = "Data Class"
+                    elif re.search(r'enum\s+\w+', content, re.IGNORECASE):
+                        purpose = "Enumeration"
+                    elif class_count > 0:
+                        purpose = "Business Logic"
+                    
+                    # Check for demographic data
+                    has_demographic_data = False
+                    demographic_fields = []
+                    
+                    if demographic_data and file_path in demographic_data:
+                        has_demographic_data = True
+                        demographic_fields = [item["field"] for item in demographic_data[file_path]]
+                    
+                    # Add to summary table
+                    file_summaries.append({
+                        "File": file_path,
+                        "Purpose": purpose,
+                        "Classes": class_count,
+                        "Interfaces": interface_count, 
+                        "Methods": method_count,
+                        "Contains Demographic Data": "Yes" if has_demographic_data else "No",
+                        "Demographic Fields": ", ".join(demographic_fields) if demographic_fields else "None"
+                    })
+                
+                # Display the summary table
+                if file_summaries:
+                    st.dataframe(pd.DataFrame(file_summaries), use_container_width=True)
+                    
+                    # Add download option
+                    csv = pd.DataFrame(file_summaries).to_csv(index=False)
+                    b64 = base64.b64encode(csv.encode()).decode()
+                    href = f'data:file/csv;base64,{b64}'
+                    st.markdown(
+                        f'<a href="{href}" download="java_file_summary.csv"><button style="padding: 0.5em 1em; '
+                        f'background-color: #4CAF50; color: white; border: none; '
+                        f'border-radius: 4px; cursor: pointer;">Download File Summary (CSV)</button></a>',
+                        unsafe_allow_html=True
+                    )
+                else:
+                    st.warning("No Java files were found for analysis.")
+            
             # Demographic data summary
             st.subheader("Demographic Data Summary")
             if demographic_data:

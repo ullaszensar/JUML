@@ -58,9 +58,14 @@ This tab provides an overview of all key metrics and findings in your codebase.
 Features:
 - **Key Metrics**: Shows total classes, relationships, and demographic data fields
 - **Class Structure Summary**: Displays distribution of classes across packages
+- **Java File Summary**: Complete file-by-file breakdown of each source file's purpose and contents
+  - Shows what each file does (Controller, Service, Entity, etc.)
+  - Counts classes, interfaces and methods in each file
+  - Indicates whether a file contains demographic data
+  - Lists all demographic fields found in each file
 - **Demographic Data Summary**: Consolidated table of all demographic fields found across all files
 - **Relationship Type Summary**: Statistical breakdown of relationship types in your code
-- **CSV Export**: Download the full demographic data summary for offline analysis
+- **CSV Export**: Download any of the summary tables for offline analysis
 
 #### Demographic Data Analysis
 This tab scans your Java code for fields that might store demographic or personal information.
